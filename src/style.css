@@ -1,15 +1,19 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap");
 
-/*
-  Primary color alias — maps to the theme color set in widgetConfig.ts.
-  To change the theme: update themeColor in widgetConfig.ts, then replace
-  "amber" below with the matching Tailwind color name.
-*/
+/* Identidade Equiply */
 @theme {
-  --color-primary-100: var(--color-blue-100);
-  --color-primary-200: var(--color-blue-200);
-  --color-primary-400: var(--color-blue-400);
-  --color-primary-500: var(--color-blue-500);
-  --color-primary-600: var(--color-blue-600);
-  --color-primary-700: var(--color-blue-700);
+  --font-sans: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --color-primary-100: #e3eef7;
+  --color-primary-200: #c7dcec;
+  --color-primary-400: #5b9bc9;
+  --color-primary-500: #1f6fa8;
+  --color-primary-600: #185b8a;
+  --color-primary-700: #0b3a5b;
+  --color-navy: #0b3a5b;
+  --color-accent-500: #f2541b;
+  --color-accent-600: #d9440f;
+  --color-surface: #edf2f6;
+  --color-line: #d3dee7;
+  --color-muted: #4a6478;
 }

@@ -74,7 +74,7 @@
 
             <!-- Weekday header -->
             <div class="grid grid-cols-7 gap-y-1 text-center text-[11px] font-semibold uppercase text-zinc-400">
-              <span v-for="d in weekdayLabels" :key="d">{{ d }}</span>
+              <span v-for="(d, wi) in weekdayLabels" :key="wi">{{ d }}</span>
             </div>
 
             <!-- Day grid -->
@@ -104,14 +104,14 @@
                 class="text-xs font-medium text-zinc-500 hover:text-zinc-700"
                 @click="clear"
               >
-                Clear
+                Limpar
               </button>
               <button
                 type="button"
                 class="text-xs font-medium text-primary-600 hover:text-primary-700"
                 @click="selectToday"
               >
-                Today
+                Hoje
               </button>
             </div>
           </div>
@@ -150,7 +150,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const weekdayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+const weekdayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
 const open = ref(false)
 const triggerRef = ref<HTMLElement | null>(null)
@@ -182,12 +182,12 @@ watch(open, (isOpen) => {
 })
 
 const monthLabel = computed(() =>
-  viewDate.value.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+  viewDate.value.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }),
 )
 
 const displayValue = computed(() => {
-  if (!selectedDate.value) return props.placeholder ?? 'Select date'
-  return selectedDate.value.toLocaleDateString(undefined, {
+  if (!selectedDate.value) return props.placeholder ?? 'Selecionar data'
+  return selectedDate.value.toLocaleDateString('pt-PT', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

@@ -1,0 +1,24 @@
+string automation.fn_Quotes_createFromWizard(String payload)
+{
+	// v1.0 | Wizard de Pedido de Orçamento | Cria o orçamento pela API v8 (aceita as colunas personalizadas das linhas:
+	// Line_Start_Date, Line_End_Date, etc.). Recebe o JSON do orçamento tal como o widget o monta (campos do Quotes + Quoted_Items).
+	// O cálculo (Daily_Price, Line_Tax, caução, IVA, desconto Empresa) é feito a seguir pela fn_Quotes_calcLines, chamada pelo widget.
+	CRM_API = "https://www.zohoapis.eu/crm/v8/";
+	CONEXAO = "crm_quotes";
+	dataMap = payload.toMap();
+	listaData = List();
+	listaData.add(dataMap);
+	gatilhos = List();
+	gatilhos.add("workflow");
+	corpo = Map();
+	corpo.put("data",listaData);
+	corpo.put("trigger",gatilhos);
+	resp = invokeurl
+	[
+		url :CRM_API + "Quotes"
+		type :POST
+		parameters:corpo.toString()
+		connection:CONEXAO
+	];
+	return resp.toString();
+}

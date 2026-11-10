@@ -19,6 +19,15 @@ export interface ZohoInterface {
         getCurrentEnvironment: () => Promise<any>;
       };
       API: {
+        searchRecord: (Object: { Entity: string; Type: string; Query: string }) => Promise<any>;
+        getRecord: (Object: { Entity: string; RecordID: string }) => Promise<any>;
+        getRelatedRecords: (Object: {
+          Entity: string;
+          RecordID: string;
+          RelatedList: string;
+          page: number;
+          per_page: number;
+        }) => Promise<any>;
         getAllUsers: (Object: {
           Type: string;
           page: number;
