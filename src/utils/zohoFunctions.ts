@@ -11,7 +11,7 @@ import { useWidgetConfigStore } from '@/stores/widgetConfig';
       ZOHO.embeddedApp.on('PageLoad', async (_params?: object) => {
         console.info('Hello world from ZOHO!', _params)
         paramsStore.updateParams(_params)
-        if ((_params as any)?.ButtonPosition === 'DetailView') {
+        if (['DetailView', 'CreateOrCloneView', 'EditView'].includes((_params as any)?.ButtonPosition)) {
           try { await resizePopup("100%", "100%") } catch (_) { /* not available in all contexts */ }
         }
         resolve(_params)

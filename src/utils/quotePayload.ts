@@ -12,13 +12,14 @@ interface PayloadInput {
   totals: QuoteTotals
   adjustment: number
   promoCode: string
+  /** revisão: não mexe na fase nem em Empresa/Contacto/Oportunidade e limpa o desconto geral se for zero */
+  review?: boolean
 }
 
 /** Orçamento no formato da API v8 do CRM (linhas em Quoted_Items) */
 export function buildQuotePayload(i: PayloadInput): Record<string, unknown> {
   const o: Record<string, unknown> = {
     Subject: i.info.subject,
-    Quote_Stage: 'Rascunho',
     Valid_Till: i.info.validTill,
     Rental_Start_Date: i.period.start,
     Rental_End_Date: i.period.end,
@@ -43,18 +44,27 @@ export function buildQuotePayload(i: PayloadInput): Record<string, unknown> {
       return row
     }),
   }
-  if (i.info.contact) o.Contact_Name = { id: i.info.contact.id }
-  if (i.info.account) {
-    o.Account_Name = { id: i.info.account.id }
-  }
+  if (!i.review) o.Quote_Stage = 'Rascunho'
+  if (!i.review && i.info.contact) o.Contact_Name = { id: i.info.contact.id }
+  if (!i.review && i.info.account) o.Account_Name = { id: i.info.account.id }
   // Desconto geral em euros (por defeito o contratual da Empresa; o utilizador pode alterá-lo)
   if (i.totals.generalDiscount > 0) o.Discount = i.totals.generalDiscount
-  if (i.info.deal) o.Deal_Name = { id: i.info.deal.id }
+  if (i.review) o.Discount = i.totals.generalDiscount > 0 ? i.totals.generalDiscount : 0
+  if (!i.review && i.info.deal) o.Deal_Name = { id: i.info.deal.id }
   if (i.info.requestOrigin) o.Request_Origin = i.info.requestOrigin
   if (toNumber(i.period.transportCost)) o.Transport_Cost = toNumber(i.period.transportCost)
   if (i.promoCode) o.Promo_Code = i.promoCode
-  // campos vazios não vão para o CRM
-  for (const k of Object.keys(o)) if (o[k] === '' || o[k] === undefined) delete o[k]
+  if (i.review) {
+    // na revisão, um campo esvaziado tem de ser limpo no CRM (null) e não ignorado
+    o.Request_Origin = i.info.requestOrigin || null
+    o.Transport_Cost = toNumber(i.period.transportCost) || null
+    o.Promo_Code = i.promoCode || null
+  }
+  // campos vazios não vão para o CRM (na criação)
+  for (const k of Object.keys(o)) {
+    if (o[k] === undefined || (o[k] === '' && !i.review)) delete o[k]
+    else if (o[k] === '') o[k] = null
+  }
   return o
 }
 

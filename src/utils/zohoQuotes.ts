@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ZohoInterface } from '@/interfaces/zohoInterface'
-import type { DealPrefill, Lookup, PriceContext, ProductInfo } from '@/interfaces/quoteTypes'
+import type { AddressState, DealPrefill, Lookup, PriceContext, ProductInfo, QuotePrefill } from '@/interfaces/quoteTypes'
 import { quoteConfig as cfg } from '@/config/quoteConfig'
 import { functionRequest, getOrgInfo, invokeCrmFunction } from '@/utils/zohoFunctions'
 
@@ -164,6 +164,53 @@ export async function loadDealPrefill(dealId: string): Promise<DealPrefill | nul
     deliveryLocation: String(d.Delivery_Location ?? ''),
     products: equipmentOf(d.Requested_Equipment),
   }
+}
+
+const addressOf = (q: any, p: 'Billing' | 'Shipping'): AddressState => ({
+  country: String(q[`${p}_Country`] ?? ''), street: String(q[`${p}_Street`] ?? ''), city: String(q[`${p}_City`] ?? ''),
+  state: String(q[`${p}_State`] ?? ''), code: String(q[`${p}_Code`] ?? ''),
+})
+
+/** Lê um orçamento existente (e as linhas do subformulário Quoted_Items) para o rever no widget */
+export async function loadQuotePrefill(quoteId: string): Promise<QuotePrefill | null> {
+  const q = await getRecord('Quotes', quoteId)
+  if (!q) return null
+  const lines: QuotePrefill['lines'] = []
+  for (const r of Array.isArray(q.Quoted_Items) ? q.Quoted_Items : []) {
+    const product = asLookup(r.Product_Name, 'Product_Name')
+    if (!product) continue
+    lines.push({
+      product, qty: String(r.Quantity ?? 1), start: r.Line_Start_Date ?? '', end: r.Line_End_Date ?? '',
+      discount: Number(r.Discount ?? 0),
+    })
+  }
+  return {
+    id: String(q.id),
+    stage: String(q.Quote_Stage ?? ''),
+    info: {
+      subject: String(q.Subject ?? ''), account: asLookup(q.Account_Name, 'Account_Name'), contact: asLookup(q.Contact_Name, 'Full_Name'),
+      deal: asLookup(q.Deal_Name, 'Deal_Name'), validTill: q.Valid_Till ?? '', requestOrigin: String(q.Request_Origin ?? ''),
+    },
+    period: { start: q.Rental_Start_Date ?? '', end: q.Rental_End_Date ?? '', transportCost: q.Transport_Cost ? String(q.Transport_Cost) : '', deliveryType: String(q.Delivery_Type ?? '') },
+    billing: addressOf(q, 'Billing'),
+    shipping: addressOf(q, 'Shipping'),
+    adjustment: q.Adjustment ? String(q.Adjustment) : '',
+    promoCode: String(q.Promo_Code ?? ''),
+    discount: Number(q.Discount ?? 0),
+    lines,
+  }
+}
+
+/** Atualiza o orçamento pela função Deluge (substitui as linhas). Devolve o ID. */
+export async function updateQuote(id: string, payload: Record<string, unknown>): Promise<string> {
+  const out = await invokeCrmFunction(
+    cfg.updateFunction,
+    { arguments: JSON.stringify({ quoteId: id, payload: JSON.stringify(payload) }) },
+    'object',
+  )
+  const item = out?.data?.[0]
+  if (!item || item.code !== 'SUCCESS') throw out
+  return String(item.details.id)
 }
 
 /** Cria o orçamento pela função Deluge (API v8, grava as colunas personalizadas das linhas). Devolve o ID. */

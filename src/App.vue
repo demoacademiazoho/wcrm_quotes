@@ -12,10 +12,17 @@ const loading = ref(true)
 onMounted(async () => {
   await zohoInit()
   // Botão na Oportunidade: o CRM envia Entity = Deals e o id do registo
-  const { module, id } = useParamsStore().params
+  const { module, id, ButtonPosition } = useParamsStore().params
   if (module === 'Deals' && id) {
     const ok = await useQuoteWizardStore().initFromDeal(String(id))
     if (!ok) useToast().error('Não foi possível ler a oportunidade. O orçamento abre em branco.')
+  }
+  // Botão no Pedido de Orçamento: Entity = Quotes -> revisão do orçamento (detalhe ou edição).
+  // Em "Novo"/"Clonar" (CreateOrCloneView) abre em branco, mesmo que o CRM envie o id do registo clonado,
+  // para nunca atualizar o orçamento original.
+  if (module === 'Quotes' && id && ButtonPosition !== 'CreateOrCloneView') {
+    const ok = await useQuoteWizardStore().initFromQuote(String(id))
+    if (!ok) useToast().error('Não foi possível ler o orçamento.')
   }
   loading.value = false
 })

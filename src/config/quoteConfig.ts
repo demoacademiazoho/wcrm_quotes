@@ -19,7 +19,10 @@ export const quoteConfig = {
   crmBaseUrl: 'https://crm.zoho.eu/crm',
   /** funções Deluge no CRM */
   createFunction: 'fn_Quotes_createFromWizard',
+  updateFunction: 'fn_Quotes_updateFromWizard',
   calcFunction: 'fn_Quotes_calcLines',
+  /** fases em que o orçamento pode ser revisto no widget (BP02) */
+  reviewStages: ['Rascunho', 'Revisão'],
   deliveryToCustomer: 'Entrega ao cliente',
   warehousePickup: 'Levantamento em armazém',
   requestOrigins: ['Portal', 'Backoffice', 'Telefone', 'Email'],

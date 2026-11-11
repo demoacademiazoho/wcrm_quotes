@@ -15,7 +15,7 @@
         :error="s.fieldErrors.subject"
         @update:model-value="s.clearError('subject')"
       />
-      <Input id="stage" model-value="Rascunho" label="Fase do Orçamento" disabled />
+      <Input id="stage" :model-value="s.isReview ? s.reviewStage : 'Rascunho'" label="Fase do Orçamento" disabled />
 
       <LookupInput
         id="account"
@@ -25,7 +25,7 @@
         placeholder="Pesquisar empresa..."
         :search="(q) => searchLookup('Accounts', q)"
         :disabled="s.accountLocked"
-        :hint="s.accountLocked ? 'Definida pela oportunidade de origem.' : undefined"
+        :hint="s.accountLocked ? (s.isReview ? 'Não se altera na revisão.' : 'Definida pela oportunidade de origem.') : undefined"
         :error="s.fieldErrors.account"
         @update:model-value="clearParty"
       />
@@ -37,7 +37,7 @@
         placeholder="Pesquisar contacto..."
         :search="(q) => searchLookup('Contacts', q)"
         :disabled="s.contactLocked"
-        :hint="s.contactLocked ? 'Definido pela oportunidade de origem.' : undefined"
+        :hint="s.contactLocked ? (s.isReview ? 'Não se altera na revisão.' : 'Definido pela oportunidade de origem.') : undefined"
         :error="s.fieldErrors.contact"
         @update:model-value="clearParty"
       />
@@ -46,8 +46,8 @@
         v-model="s.info.deal"
         label="Oportunidade"
         placeholder="Pesquisar oportunidade..."
-        :disabled="s.fromDeal"
-        :hint="s.fromDeal ? 'Definida pela oportunidade de origem.' : undefined"
+        :disabled="s.dealLocked"
+        :hint="s.dealLocked ? (s.isReview ? 'Não se altera na revisão.' : 'Definida pela oportunidade de origem.') : undefined"
         :search="(q) => searchLookup('Deals', q)"
       />
       <DatePicker

@@ -30,6 +30,21 @@ export interface DealPrefill {
   products: Lookup[]
 }
 
+/** Orçamento existente carregado para revisão */
+export interface QuotePrefill {
+  id: string
+  stage: string
+  info: QuoteInfoState
+  period: PeriodState
+  billing: AddressState
+  shipping: AddressState
+  adjustment: string
+  promoCode: string
+  /** desconto geral em euros (campo Discount do orçamento) */
+  discount: number
+  lines: { product: Lookup; qty: string; start: string; end: string; discount: number }[]
+}
+
 export type PriceOrigin = 'Empresa' | 'Contacto' | 'Produto'
 
 /** Contexto de preços e regras comerciais, dado pela Empresa (ou pelo Contacto, sem Empresa) */

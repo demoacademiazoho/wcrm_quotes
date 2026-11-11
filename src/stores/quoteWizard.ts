@@ -4,7 +4,7 @@ import { quoteConfig as cfg } from '@/config/quoteConfig'
 import type { AddressState, DealPrefill, GeneralDiscount, LineState, Lookup, PeriodState, PriceContext, QuoteInfoState } from '@/interfaces/quoteTypes'
 import { applyGeneralVat, calcLine, calcTotals, generalDiscountOf, toNumber } from '@/utils/quotePricing'
 import { buildQuotePayload } from '@/utils/quotePayload'
-import { createQuote, loadDealPrefill, loadPriceContext, loadProduct, recalcQuote } from '@/utils/zohoQuotes'
+import { createQuote, loadDealPrefill, loadPriceContext, loadProduct, loadQuotePrefill, recalcQuote, updateQuote } from '@/utils/zohoQuotes'
 
 export const STEPS = ['Informação do Orçamento', 'Período de Aluguer', 'Morada', 'Itens do Orçamento'] as const
 
@@ -37,9 +37,16 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   /** Oportunidade de origem (widget aberto pelo botão da Oportunidade); null = abertura livre */
   const source = ref<DealPrefill | null>(null)
   const fromDeal = computed(() => !!source.value)
+  /** revisão de um orçamento existente (widget aberto pelo botão do orçamento) */
+  const reviewId = ref('')
+  const reviewStage = ref('')
+  const isReview = computed(() => !!reviewId.value)
+  /** motivo pelo qual o orçamento não pode ser revisto (fase fora de Rascunho/Revisão ou não encontrado); vazio = pode */
+  const blockedReason = ref('')
   /** Empresa e Contacto vindos da Oportunidade ficam bloqueados; se a Oportunidade não os tem, ficam editáveis */
-  const accountLocked = computed(() => !!source.value?.account)
-  const contactLocked = computed(() => !!source.value?.contact)
+  const accountLocked = computed(() => isReview.value || !!source.value?.account)
+  const contactLocked = computed(() => isReview.value || !!source.value?.contact)
+  const dealLocked = computed(() => isReview.value || fromDeal.value)
   let pendingProducts: Lookup[] = []
   let uid = 0
 
@@ -76,6 +83,43 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     Object.assign(info, { subject: d.subject, account: d.account, contact: d.contact, deal: d.deal })
     Object.assign(period, { start: d.start, end: d.end })
     pendingProducts = [...d.products]
+    return true
+  }
+
+  // ── origem: orçamento existente (revisão) ──────────────────────────────────
+  /** Carrega o orçamento e as linhas. Devolve false se não foi possível ler; fases não editáveis ficam em blockedReason. */
+  async function initFromQuote(quoteId: string): Promise<boolean> {
+    const q = await loadQuotePrefill(quoteId)
+    if (!q) return false
+    reviewId.value = q.id
+    reviewStage.value = q.stage
+    if (!(cfg.reviewStages as readonly string[]).includes(q.stage)) {
+      blockedReason.value = `O orçamento está na fase "${q.stage}". Só se pode rever em ${cfg.reviewStages.join(' ou ')}.`
+      return true
+    }
+    // com desconto geral já gravado, não se volta a sugerir o contratual da Empresa
+    if (q.discount > 0) {
+      Object.assign(generalDiscount, { mode: 'amount', value: String(q.discount) })
+      generalTouched.value = true
+    }
+    Object.assign(info, q.info)
+    Object.assign(period, q.period)
+    Object.assign(billing, q.billing)
+    Object.assign(shipping, q.shipping)
+    adjustment.value = q.adjustment
+    promoCode.value = q.promoCode
+    for (const r of q.lines) {
+      lines.value.push({ uid: ++uid, product: r.product, info: null, start: r.start, end: r.end, qty: r.qty,
+        discount: r.discount > 0 ? String(r.discount) : '', discountMode: 'amount', loading: true })
+    }
+    // carrega os dados dos equipamentos (preço, fatores, IVA) e o contexto de preços antes de mostrar o assistente
+    await Promise.all([
+      refreshContext(),
+      ...lines.value.map(async (l) => {
+        l.info = l.product ? await loadProduct(l.product.id) : null
+        l.loading = false
+      }),
+    ])
     return true
   }
 
@@ -159,11 +203,11 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     try {
       const payload = buildQuotePayload({
         info, period, billing, shipping, lines: lines.value, calcs: calcs.value,
-        totals: totals.value, adjustment: toNumber(adjustment.value), promoCode: promoCode.value,
+        totals: totals.value, adjustment: toNumber(adjustment.value), promoCode: promoCode.value, review: isReview.value,
       })
-      const id = await createQuote(payload)
+      const id = isReview.value ? await updateQuote(reviewId.value, payload) : await createQuote(payload)
       let warning = ''
-      try { await recalcQuote(id) } catch (e) { warning = `Orçamento criado, mas o cálculo automático falhou: ${JSON.stringify(e)}` }
+      try { await recalcQuote(id) } catch (e) { warning = `Orçamento ${isReview.value ? 'atualizado' : 'criado'}, mas o cálculo automático falhou: ${JSON.stringify(e)}` }
       result.value = { id, warning }
     } catch (e) {
       stepErrors.value = [`Não foi possível gravar o orçamento: ${JSON.stringify(e)}`]
@@ -174,6 +218,9 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
 
   function reset() {
     source.value = null
+    reviewId.value = ''
+    reviewStage.value = ''
+    blockedReason.value = ''
     pendingProducts = []
     step.value = 0
     Object.assign(info, { subject: '', account: null, contact: null, deal: null, validTill: todayPlus(cfg.validDays), requestOrigin: '' })
@@ -193,7 +240,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
 
   return {
     step, info, period, billing, shipping, lines, adjustment, generalDiscount, generalTouched, setGeneralDiscount, promoCode, ctx, ctxLoading, saving,
-    stepErrors, fieldErrors, result, calcs, totals, source, fromDeal, accountLocked, contactLocked, initFromDeal,
+    stepErrors, fieldErrors, result, calcs, totals, source, fromDeal, accountLocked, contactLocked, dealLocked, initFromDeal, initFromQuote, isReview, reviewStage, blockedReason,
     addLine, removeLine, pickProduct, clearError, next, back, goTo, copyBillingToShipping, save, reset, refreshContext,
   }
 })
