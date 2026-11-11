@@ -1,10 +1,10 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { quoteConfig as cfg } from '@/config/quoteConfig'
-import type { AddressState, LineState, Lookup, PeriodState, PriceContext, QuoteInfoState } from '@/interfaces/quoteTypes'
-import { calcLine, calcTotals, toNumber } from '@/utils/quotePricing'
+import type { AddressState, DealPrefill, GeneralDiscount, LineState, Lookup, PeriodState, PriceContext, QuoteInfoState } from '@/interfaces/quoteTypes'
+import { applyGeneralVat, calcLine, calcTotals, generalDiscountOf, toNumber } from '@/utils/quotePricing'
 import { buildQuotePayload } from '@/utils/quotePayload'
-import { createQuote, loadPriceContext, loadProduct, recalcQuote } from '@/utils/zohoQuotes'
+import { createQuote, loadDealPrefill, loadPriceContext, loadProduct, recalcQuote } from '@/utils/zohoQuotes'
 
 export const STEPS = ['Informação do Orçamento', 'Período de Aluguer', 'Morada', 'Itens do Orçamento'] as const
 
@@ -24,6 +24,9 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   const shipping = reactive<AddressState>(emptyAddress())
   const lines = ref<LineState[]>([])
   const adjustment = ref('')
+  /** desconto geral do orçamento; por defeito o desconto contratual da Empresa (enquanto o utilizador não o alterar) */
+  const generalDiscount = reactive<GeneralDiscount>({ mode: 'pct', value: '' })
+  const generalTouched = ref(false)
   const promoCode = ref('')
   const ctx = ref<PriceContext>(noContext())
   const ctxLoading = ref(false)
@@ -31,6 +34,13 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   const stepErrors = ref<string[]>([])
   const fieldErrors = reactive<Record<string, string>>({})
   const result = ref<{ id: string; warning: string } | null>(null)
+  /** Oportunidade de origem (widget aberto pelo botão da Oportunidade); null = abertura livre */
+  const source = ref<DealPrefill | null>(null)
+  const fromDeal = computed(() => !!source.value)
+  /** Empresa e Contacto vindos da Oportunidade ficam bloqueados; se a Oportunidade não os tem, ficam editáveis */
+  const accountLocked = computed(() => !!source.value?.account)
+  const contactLocked = computed(() => !!source.value?.contact)
+  let pendingProducts: Lookup[] = []
   let uid = 0
 
   // ── contexto de preços (Empresa > Contacto > Produto) ───────────────────────
@@ -39,17 +49,39 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     const token = ++ctxToken
     ctxLoading.value = true
     const c = await loadPriceContext(info.account, info.contact)
-    if (token === ctxToken) { ctx.value = c; ctxLoading.value = false }
+    if (token === ctxToken) {
+      ctx.value = c
+      ctxLoading.value = false
+      if (!generalTouched.value) Object.assign(generalDiscount, { mode: 'pct', value: c.contractPct > 0 ? String(c.contractPct) : '' })
+    }
   }
   watch(() => [info.account?.id, info.contact?.id], refreshContext)
 
   // ── cálculo ────────────────────────────────────────────────────────────────
-  const calcs = computed(() => lines.value.map((l) => calcLine(l, ctx.value)))
-  const totals = computed(() => calcTotals(calcs.value, ctx.value, !!info.account, toNumber(adjustment.value)))
+  const rawCalcs = computed(() => lines.value.map((l) => calcLine(l, ctx.value)))
+  const general = computed(() => generalDiscountOf(rawCalcs.value.filter((c) => c.ok).reduce((a, c) => a + c.base, 0), generalDiscount))
+  const calcs = computed(() => applyGeneralVat(rawCalcs.value, general.value.pct))
+  const totals = computed(() => calcTotals(calcs.value, general.value, toNumber(adjustment.value), ctx.value.depositExempt))
+  function setGeneralDiscount(mode: 'pct' | 'amount', value: string) {
+    Object.assign(generalDiscount, { mode, value })
+    generalTouched.value = true
+  }
+
+  // ── origem: Oportunidade ───────────────────────────────────────────────────
+  /** Pré-preenche o assistente com os dados da Oportunidade. Devolve false se não foi possível ler. */
+  async function initFromDeal(dealId: string): Promise<boolean> {
+    const d = await loadDealPrefill(dealId)
+    if (!d) return false
+    source.value = d
+    Object.assign(info, { subject: d.subject, account: d.account, contact: d.contact, deal: d.deal })
+    Object.assign(period, { start: d.start, end: d.end })
+    pendingProducts = [...d.products]
+    return true
+  }
 
   // ── linhas ─────────────────────────────────────────────────────────────────
   function addLine() {
-    lines.value.push({ uid: ++uid, product: null, info: null, start: period.start, end: period.end, qty: '1', discount: '', loading: false })
+    lines.value.push({ uid: ++uid, product: null, info: null, start: period.start, end: period.end, qty: '1', discount: '', discountMode: 'pct', loading: false })
   }
   function removeLine(line: LineState) {
     lines.value = lines.value.filter((l) => l !== line)
@@ -60,7 +92,20 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     if (!product) return
     line.loading = true
     line.info = await loadProduct(product.id)
+    // equipamentos vindos da Oportunidade podem não trazer o nome
+    if (line.info && !product.name) line.product = { id: product.id, name: line.info.name + (line.info.code ? ` (${line.info.code})` : '') }
     line.loading = false
+  }
+  /** Entrada no passo 4: uma linha por equipamento pretendido da Oportunidade, ou uma linha vazia */
+  function seedLines() {
+    const products = pendingProducts
+    pendingProducts = []
+    if (!products.length) { addLine(); return }
+    for (const p of products) {
+      addLine()
+      const l = lines.value[lines.value.length - 1]
+      if (l) void pickProduct(l, p)
+    }
   }
 
   // ── validação ──────────────────────────────────────────────────────────────
@@ -90,6 +135,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     } else if (n === 3) {
       if (!lines.value.length) errs.push('Adicione pelo menos uma linha.')
       calcs.value.forEach((c, i) => { if (!c.ok) errs.push(`Linha ${i + 1}: ${c.error}`) })
+      if (general.value.error) errs.push(general.value.error)
     }
     return errs
   }
@@ -98,7 +144,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     stepErrors.value = validate(step.value)
     if (stepErrors.value.length) return false
     step.value++
-    if (step.value === 3 && !lines.value.length) addLine()
+    if (step.value === 3 && !lines.value.length) seedLines()
     return true
   }
   function back() { stepErrors.value = []; if (step.value > 0) step.value-- }
@@ -127,6 +173,8 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   }
 
   function reset() {
+    source.value = null
+    pendingProducts = []
     step.value = 0
     Object.assign(info, { subject: '', account: null, contact: null, deal: null, validTill: todayPlus(cfg.validDays), requestOrigin: '' })
     Object.assign(period, { start: '', end: '', transportCost: '', deliveryType: '' })
@@ -134,6 +182,8 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     Object.assign(shipping, emptyAddress())
     lines.value = []
     adjustment.value = ''
+    Object.assign(generalDiscount, { mode: 'pct', value: '' })
+    generalTouched.value = false
     promoCode.value = ''
     ctx.value = noContext()
     stepErrors.value = []
@@ -142,8 +192,8 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   }
 
   return {
-    step, info, period, billing, shipping, lines, adjustment, promoCode, ctx, ctxLoading, saving,
-    stepErrors, fieldErrors, result, calcs, totals,
+    step, info, period, billing, shipping, lines, adjustment, generalDiscount, generalTouched, setGeneralDiscount, promoCode, ctx, ctxLoading, saving,
+    stepErrors, fieldErrors, result, calcs, totals, source, fromDeal, accountLocked, contactLocked, initFromDeal,
     addLine, removeLine, pickProduct, clearError, next, back, goTo, copyBillingToShipping, save, reset, refreshContext,
   }
 })

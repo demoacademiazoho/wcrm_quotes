@@ -12,7 +12,7 @@ import { useWidgetConfigStore } from '@/stores/widgetConfig';
         console.info('Hello world from ZOHO!', _params)
         paramsStore.updateParams(_params)
         if ((_params as any)?.ButtonPosition === 'DetailView') {
-          try { await resizePopup(700, 1300) } catch (_) { /* not available in all contexts */ }
+          try { await resizePopup("100%", "100%") } catch (_) { /* not available in all contexts */ }
         }
         resolve(_params)
       })
@@ -96,18 +96,20 @@ import { useWidgetConfigStore } from '@/stores/widgetConfig';
   
   // INVOKE's
   
+  /** Pedido para ZOHO.CRM.FUNCTIONS.execute: só usa API key se estiver configurada (apiKey vazia faria falhar a chamada) */
+  export function functionRequest(args?: object): Record<string, unknown> {
+    const apiKey = useWidgetConfigStore().apiKey;
+    const requestData: Record<string, unknown> = apiKey ? { auth_type: 'apikey', zapikey: apiKey } : {};
+    if (args) Object.assign(requestData, args);
+    return requestData;
+  }
+
   export async function invokeCrmFunction(
     functionName: string,
     args: object,
     returnType: 'string' | 'array' | 'object',
   ) {
-    // VARIABLES
-    const requestData = {
-      auth_type: 'apikey',
-      zapikey: useWidgetConfigStore().apiKey,
-    };
-    if (args) Object.assign(requestData, args);
-    const response = await ZOHO.CRM.FUNCTIONS.execute(functionName, requestData);
+    const response = await ZOHO.CRM.FUNCTIONS.execute(functionName, functionRequest(args));
     let output = response?.details?.output;
     if (response?.code !== 'success' || !output) {
       throw response;
@@ -140,7 +142,7 @@ import { useWidgetConfigStore } from '@/stores/widgetConfig';
   
   // UI's
   
-  export async function resizePopup(height: number, width: number) {
+  export async function resizePopup(height: string, width: string) {
     const response = await ZOHO.CRM.UI.Resize({ height, width });
     return response;
   }

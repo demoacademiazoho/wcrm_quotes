@@ -1,0 +1,427 @@
+void automation.fn_Quotes_calcLines(String quoteId)
+{
+	// v1.6 | 11/11/2026 | David Domingues
+	// ref. MR-017
+	// Motor de preço do Pedido de Orçamento: grava List_Price, Daily_Price e Line_Tax nas linhas e Total_Deposit e IVA_Total no orçamento. O Desconto geral é o do orçamento (widget ou utilizador).
+	// ===== Constantes =====
+	INCLUSIVE_DAYS = true;
+	// true = conta o dia de início (01/11 a 07/11 = 7)
+	MONTH_DAYS = 30;
+	// dias de um mês
+	WEEK_DAYS = 7;
+	// dias de uma semana
+	CONTACT_PB_FIELD = "Price_Book";
+	// campo do Contacto com a tabela de preços
+	PRECO_DIA_FIELD = "Daily_Price";
+	// campo do subformulário com o preço por dia
+	RESPEITAR_ISENCAO = true;
+	// true = caução 0 se a Empresa tem Deposit_Exempt
+	APLICAR_IVA_PRODUTO = true;
+	// true = copia o IVA da ficha do produto para a linha
+	DESCONTO_CONTRATUAL = true;
+	// true = se o orçamento não tem Desconto geral e a Empresa tem desconto contratual, aplica-o
+	MAX_DESCONTO_PCT = 50;
+	// limite do desconto contratual (%)
+	PB_PAGINAS = {1,2,3,4,5};
+	// páginas lidas da tabela de preços (200 produtos por página)
+	PB_POR_PAGINA = 200;
+	CRM_API = "https://www.zohoapis.eu/crm/v8/";
+	DEBUG = false;
+	// false em produção
+	info "INÍCIO fn_Quotes_calcLines | orçamento " + quoteId;
+	try
+	{
+		// ===== 1. Ler o orçamento pela API v8 (traz as colunas personalizadas do subformulário) =====
+		resp = invokeurl
+		[
+			url :CRM_API + "Quotes/" + quoteId
+			type :GET
+			connection:"crm_quotes"
+		];
+		respMap = resp.toMap();
+		if(respMap.get("data") == null)
+		{
+			info "ERRO: não foi possível ler o orçamento " + quoteId + ": " + resp;
+			return;
+		}
+		quote = respMap.get("data").get(0);
+		items = quote.get("Quoted_Items");
+		if(items == null || items.size() == 0)
+		{
+			info "FIM fn_Quotes_calcLines | orçamento sem linhas";
+			return;
+		}
+		// ===== 2. Empresa ou Contacto: tabela de preços, isenção de caução e desconto contratual =====
+		pbId = null;
+		origemPB = "Produto";
+		isentoCaucao = false;
+		pctContrato = 0.0;
+		acc = quote.get("Account_Name");
+		if(acc != null)
+		{
+			accRec = zoho.crm.getRecordById("Accounts",acc.get("id").toLong());
+			isentoCaucao = ifnull(accRec.get("Deposit_Exempt"),false);
+			pctContrato = ifnull(accRec.get("Contract_Discount"),0).toDecimal();
+			accPB = accRec.get("Price_Book");
+			if(accPB != null)
+			{
+				pbId = accPB.get("id");
+				origemPB = "Empresa";
+			}
+		}
+		else
+		{
+			ct = quote.get("Contact_Name");
+			if(ct != null)
+			{
+				ctRec = zoho.crm.getRecordById("Contacts",ct.get("id").toLong());
+				ctPB = ctRec.get(CONTACT_PB_FIELD);
+				// null se o Contacto não tiver tabela
+				if(ctPB != null)
+				{
+					pbId = ctPB.get("id");
+					origemPB = "Contacto";
+				}
+			}
+		}
+		// Limite do desconto contratual (usado no desconto geral e no IVA de cada linha)
+		if(pctContrato > MAX_DESCONTO_PCT)
+		{
+			pctContrato = MAX_DESCONTO_PCT;
+		}
+		// ===== 3. Tabela de preços ATIVA, lida uma só vez (com páginas): idProduto -> preço por dia =====
+		pbPrices = Map();
+		if(pbId != null)
+		{
+			pbRec = zoho.crm.getRecordById("Price_Books",pbId.toLong());
+			if(pbRec != null && pbRec.get("Active") == false)
+			{
+				// tabela inativa: igual ao widget, usa o preço do equipamento
+				info "AVISO: a tabela de preços " + pbRec.get("Price_Book_Name") + " está inativa: usado o preço do equipamento.";
+				pbId = null;
+				origemPB = "Produto";
+			}
+		}
+		if(pbId != null)
+		{
+			continuaPB = true;
+			for each  pagina in PB_PAGINAS
+			{
+				if(continuaPB)
+				{
+					prods = zoho.crm.getRelatedRecords("Products","Price_Books",pbId.toLong(),pagina.toLong(),PB_POR_PAGINA);
+					if(prods == null || prods.size() == 0)
+					{
+						continuaPB = false;
+					}
+					else
+					{
+						for each  p in prods
+						{
+							if(p.get("list_price") != null)
+							{
+								pbPrices.put(p.get("id").toString(),p.get("list_price").toDecimal());
+							}
+						}
+						if(prods.size() < PB_POR_PAGINA)
+						{
+							continuaPB = false;
+						}
+					}
+				}
+			}
+			if(continuaPB)
+			{
+				info "AVISO: a tabela de preços tem mais produtos do que o limite lido (" + (PB_PAGINAS.size() * PB_POR_PAGINA) + "). Aumentar PB_PAGINAS.";
+			}
+		}
+		// ===== 3.1 Ler os produtos das linhas (uma vez por equipamento distinto) =====
+		prodCache = Map();
+		erros = List();
+		for each  row in items
+		{
+			prodRef = row.get("Product_Name");
+			if(prodRef != null && !prodCache.containKey(prodRef.get("id").toString()))
+			{
+				prodRec = zoho.crm.getRecordById("Products",prodRef.get("id").toLong());
+				if(prodRec == null)
+				{
+					erros.add("Equipamento " + prodRef.get("id") + " não encontrado.");
+				}
+				else
+				{
+					prodCache.put(prodRef.get("id").toString(),prodRec);
+				}
+			}
+		}
+		if(erros.size() > 0)
+		{
+			info "ERRO: orçamento " + quoteId + " não calculado: " + erros;
+			return;
+		}
+		// ===== 4. Calcular cada linha =====
+		updates = List();
+		totalCaucao = 0.0;
+		// soma de (Caução do produto x Quantidade)
+		baseDesconto = 0.0;
+		// soma de (Quantidade x preço da linha - desconto da linha), sem IVA
+		itensIVA = List();
+		// base e % de IVA de cada linha (o IVA calcula-se depois de conhecido o Desconto geral)
+		for each  row in items
+		{
+			prodRef = row.get("Product_Name");
+			sd = row.get("Line_Start_Date");
+			ed = row.get("Line_End_Date");
+			qtdLinha = ifnull(row.get("Quantity"),0).toDecimal();
+			valorLinha = ifnull(row.get("List_Price"),0).toDecimal();
+			// passa a ser o preço novo se for recalculado
+			linha = Map();
+			// alterações a gravar nesta linha
+			linha.put("id",row.get("id"));
+			mudou = false;
+			pctIVA = 0.0;
+			// % de IVA desta linha (preenchida em 4.1)
+			caucaoLinha = 0.0;
+			// --- 4.1 Produto: caução e IVA (não dependem das datas) ---
+			pid = "";
+			prod = null;
+			if(prodRef != null)
+			{
+				pid = prodRef.get("id").toString();
+				prod = prodCache.get(pid);
+				// Caução da linha
+				caucaoLinha = (ifnull(prod.get("Deposit"),0).toDecimal() * qtdLinha).round(2);
+				totalCaucao = totalCaucao + caucaoLinha;
+				// IVA da ficha do produto
+				if(APLICAR_IVA_PRODUTO)
+				{
+					taxLista = List();
+					pctIVA = 0.0;
+					taxProd = prod.get("Tax");
+					taxable = ifnull(prod.get("Taxable"),true);
+					if(taxable != false && taxProd != null)
+					{
+						for each  t in taxProd
+						{
+							// o imposto pode vir como texto ("IVA - 23.0 %") ou como mapa com "value"
+							txt = t.toString();
+							if(txt.contains("value"))
+							{
+								txt = t.get("value").toString();
+							}
+							partes = txt.toList(" - ");
+							pct = 0.0;
+							if(partes.size() > 1)
+							{
+								pct = partes.get(1).replaceAll("%","").trim().toDecimal();
+							}
+							taxMap = Map();
+							taxMap.put("name",partes.get(0).trim());
+							taxMap.put("percentage",pct);
+							taxLista.add(taxMap);
+							pctIVA = pctIVA + pct;
+						}
+					}
+					// IVA que a linha já tem
+					pctAtualIVA = 0.0;
+					ltAtual = row.get("Line_Tax");
+					if(ltAtual != null)
+					{
+						for each  x in ltAtual
+						{
+							pctAtualIVA = pctAtualIVA + ifnull(x.get("percentage"),0).toDecimal();
+						}
+					}
+					if((pctAtualIVA - pctIVA).abs() > 0.001)
+					{
+						linha.put("Line_Tax",taxLista);
+						mudou = true;
+					}
+					if(DEBUG)
+					{
+						info "Linha " + row.get("id") + " | Tax bruto: " + taxProd + " | IVA produto " + pctIVA + "% | IVA atual " + pctAtualIVA + "%";
+					}
+				}
+			}
+			// --- 4.2 Preço da linha (precisa de equipamento e datas) ---
+			if(prodRef != null && sd != null && ed != null)
+			{
+				dias = ((ed.toDate().toLong() - sd.toDate().toLong()) / 86400000).round(0).toLong();
+				if(INCLUSIVE_DAYS)
+				{
+					dias = dias + 1;
+				}
+				minDias = ifnull(prod.get("Minimum_Period_Days"),1).toLong();
+				if(dias < 1)
+				{
+					erros.add("Datas inválidas: a data de fim é anterior à data de início.");
+				}
+				else if(dias < minDias)
+				{
+					erros.add("O período do aluguer é inferior ao mínimo do equipamento (" + minDias + " dias).");
+				}
+				else
+				{
+					// Preço por dia: tabela (Empresa ou Contacto), senão preço do produto
+					precoDia = ifnull(prod.get("Unit_Price"),0).toDecimal();
+					origem = "Produto";
+					if(pbPrices.containKey(pid))
+					{
+						precoDia = pbPrices.get(pid);
+						origem = origemPB;
+					}
+					// Meses, semanas e dias soltos (só com os dois fatores configurados)
+					fMes = ifnull(prod.get("Monthly_Price_Factor"),0).toDecimal();
+					fSem = ifnull(prod.get("Weekly_Price_Factor"),0).toDecimal();
+					meses = 0;
+					semanas = 0;
+					diasSoltos = dias;
+					valorMes = 0.0;
+					valorSemana = 0.0;
+					valorDia = 0.0;
+					if(fMes > 0 && fSem > 0)
+					{
+						resto1 = dias % MONTH_DAYS;
+						meses = ((dias - resto1) / MONTH_DAYS).round(0).toLong();
+						diasSoltos = resto1 % WEEK_DAYS;
+						semanas = ((resto1 - diasSoltos) / WEEK_DAYS).round(0).toLong();
+						valorMes = meses * fMes * precoDia;
+						valorSemana = semanas * fSem * precoDia;
+						valorDia = diasSoltos * precoDia;
+					}
+					else
+					{
+						valorDia = dias * precoDia;
+					}
+					total = (valorMes + valorSemana + valorDia).round(2);
+					valorLinha = total;
+					if(DEBUG)
+					{
+						info "Linha " + row.get("id") + " | dias " + dias + " | meses " + meses + " | semanas " + semanas + " | dias soltos " + diasSoltos + " | preço/dia " + precoDia + " (" + origem + ") | total " + total + " | caução " + caucaoLinha;
+					}
+					// Só atualiza se mudou (evita ciclos). A Quantity (unidades) não é alterada.
+					precoAtual = ifnull(row.get("List_Price"),0).toDecimal();
+					precoDiaAtual = ifnull(row.get(PRECO_DIA_FIELD),0).toDecimal();
+					if((precoAtual - total).abs() > 0.001 || (precoDiaAtual - precoDia).abs() > 0.001)
+					{
+						linha.put("List_Price",total);
+						linha.put(PRECO_DIA_FIELD,precoDia);
+						mudou = true;
+					}
+				}
+			}
+			else if(DEBUG)
+			{
+				info "Linha " + row.get("id") + " ignorada no preço: falta equipamento, data de início ou data de fim.";
+			}
+			// --- 4.3 Fecho da linha ---
+			baseLinha = qtdLinha * valorLinha - ifnull(row.get("Discount"),0).toDecimal();
+			baseDesconto = baseDesconto + baseLinha;
+			itemIVA = Map();
+			itemIVA.put("base",baseLinha);
+			itemIVA.put("pct",pctIVA);
+			itensIVA.add(itemIVA);
+			if(DEBUG)
+			{
+				info "Linha " + row.get("id") + " | base " + baseLinha.round(2) + " | IVA " + pctIVA + "%";
+			}
+			if(mudou)
+			{
+				updates.add(linha);
+			}
+		}
+		// ===== 5. Se alguma linha falhou, não grava nada =====
+		if(erros.size() > 0)
+		{
+			info "AVISO: orçamento " + quoteId + " não calculado: " + erros;
+			return;
+		}
+		// ===== 6. Totais do orçamento: caução, IVA e desconto contratual =====
+		dataMap = Map();
+		if(updates.size() > 0)
+		{
+			dataMap.put("Quoted_Items",updates);
+		}
+		// Caução total
+		if(RESPEITAR_ISENCAO && isentoCaucao == true)
+		{
+			totalCaucao = 0.0;
+		}
+		totalCaucao = totalCaucao.round(2);
+		caucaoAtual = ifnull(quote.get("Total_Deposit"),0).toDecimal();
+		if((caucaoAtual - totalCaucao).abs() > 0.001)
+		{
+			dataMap.put("Total_Deposit",totalCaucao);
+		}
+		// Desconto geral (€): o do orçamento. Só sem Desconto aplica o contratual da Empresa (orçamentos criados fora do widget).
+		descAtual = ifnull(quote.get("Discount"),0).toDecimal();
+		descGeral = descAtual;
+		if(DESCONTO_CONTRATUAL && acc != null && descAtual <= 0 && pctContrato > 0)
+		{
+			descGeral = (baseDesconto * pctContrato / 100).round(2);
+		}
+		if((descAtual - descGeral).abs() > 0.001)
+		{
+			dataMap.put("Discount",descGeral);
+		}
+		pctGeral = 0.0;
+		if(baseDesconto > 0)
+		{
+			pctGeral = descGeral / baseDesconto * 100;
+		}
+		if(DEBUG)
+		{
+			info "Desconto geral " + descGeral + " (" + pctGeral.round(4) + "% de " + baseDesconto.round(2) + ", atual " + descAtual + ")";
+		}
+		// IVA total (campo IVA_Total; o Tax do Resumo não é tocado): IVA de cada linha sobre a base já sem o desconto geral
+		totalIVA = 0.0;
+		for each  it in itensIVA
+		{
+			totalIVA = totalIVA + (it.get("base").toDecimal() * (1 - pctGeral / 100) * it.get("pct").toDecimal() / 100).round(2);
+		}
+		totalIVA = totalIVA.round(2);
+		ivaAtual = ifnull(quote.get("IVA_Total"),0).toDecimal();
+		if((ivaAtual - totalIVA).abs() > 0.001)
+		{
+			dataMap.put("IVA_Total",totalIVA);
+		}
+		if(DEBUG)
+		{
+			info "IVA total " + totalIVA + " (atual " + ivaAtual + ")";
+		}
+		if(DEBUG)
+		{
+			info "Caução total " + totalCaucao + " (atual " + caucaoAtual + ", isento " + isentoCaucao + ")";
+		}
+		// ===== 7. Gravar pela API v8 =====
+		if(dataMap.size() > 0)
+		{
+			// "trigger":[] = não volta a disparar workflows
+			listaData = List();
+			listaData.add(dataMap);
+			corpo = Map();
+			corpo.put("data",listaData);
+			corpo.put("trigger",List());
+			upd = invokeurl
+			[
+				url :CRM_API + "Quotes/" + quoteId
+				type :PUT
+				parameters:corpo.toString()
+				connection:"crm_quotes"
+			];
+			if(DEBUG)
+			{
+				info "Resposta da gravação: " + upd;
+			}
+			if(upd.toString().contains("error"))
+			{
+				info "ERRO ao gravar o orçamento " + quoteId + ": " + upd + " | Verifique os API names dos campos (linhas, Line_Tax, Total_Deposit, Discount, IVA_Total) e a ligação crm_quotes.";
+			}
+		}
+		info "FIM fn_Quotes_calcLines | orçamento " + quoteId + " | linhas alteradas " + updates.size();
+	}
+	catch (e)
+	{
+		info "ERRO fn_Quotes_calcLines | orçamento " + quoteId + ": " + e.toString();
+	}
+}

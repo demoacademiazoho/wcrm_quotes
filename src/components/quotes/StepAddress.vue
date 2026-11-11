@@ -8,6 +8,10 @@
       <Button variant="secondary" size="sm" @click="s.copyBillingToShipping">Copiar endereço</Button>
     </div>
 
+    <p v-if="s.source?.deliveryLocation" class="rounded-lg border border-primary-200 bg-primary-100/60 px-4 py-3 text-sm text-navy">
+      Local de entrega indicado na oportunidade: <strong>{{ s.source.deliveryLocation }}</strong>
+    </p>
+
     <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <fieldset class="rounded-xl border border-line p-4">
         <legend class="px-2 text-sm font-semibold text-navy">Endereço de faturação</legend>

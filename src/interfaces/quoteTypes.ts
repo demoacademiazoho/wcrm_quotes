@@ -16,6 +16,20 @@ export interface ProductInfo {
   vatPct: number
 }
 
+/** Dados da Oportunidade que pré-preenchem o orçamento */
+export interface DealPrefill {
+  deal: Lookup
+  subject: string
+  account: Lookup | null
+  contact: Lookup | null
+  start: string
+  end: string
+  /** texto livre do campo Delivery_Location da Oportunidade (só informativo) */
+  deliveryLocation: string
+  /** equipamentos pretendidos (Requested_Equipment) */
+  products: Lookup[]
+}
+
 export type PriceOrigin = 'Empresa' | 'Contacto' | 'Produto'
 
 /** Contexto de preços e regras comerciais, dado pela Empresa (ou pelo Contacto, sem Empresa) */
@@ -59,7 +73,9 @@ export interface LineState {
   start: string
   end: string
   qty: string
+  /** valor do desconto: percentagem ou euros, conforme discountMode (como o popup "Definir desconto" do CRM) */
   discount: string
+  discountMode: 'pct' | 'amount'
   loading: boolean
 }
 
@@ -90,11 +106,20 @@ export interface LineCalc {
   deposit: number
 }
 
+/** Desconto geral do orçamento (como o popup "Definir desconto" do CRM): percentagem ou redução direta em euros */
+export interface GeneralDiscount {
+  mode: 'pct' | 'amount'
+  value: string
+}
+
 export interface QuoteTotals {
   gross: number
   lineDiscounts: number
   base: number
-  companyDiscount: number
+  /** desconto geral em euros (por defeito o desconto contratual da Empresa) */
+  generalDiscount: number
+  /** desconto geral em % do total das linhas (usado no IVA) */
+  generalPct: number
   vat: number
   adjustment: number
   grand: number

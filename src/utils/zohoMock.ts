@@ -13,7 +13,11 @@ const db: Record<string, any[]> = {
     { id: 'C2', Full_Name: 'Rui Ferreira' },
     { id: 'C3', Full_Name: 'Maria Particular (tabela própria)', Price_Book: { id: 'PB2' } },
   ],
-  Deals: [{ id: 'D1', Deal_Name: 'Obra Cascais 2026' }],
+  Deals: [{
+    id: 'D1', Deal_Name: 'Obra Cascais 2026', Account_Name: { id: 'A1', name: 'Construções Atlântico, Lda' }, Contact_Name: { id: 'C1', name: 'Ruben Teste' },
+    Desired_Start_Date: '2026-11-16', Desired_End_Date: '2026-11-30', Delivery_Location: 'Obra em Cascais, junto à rotunda',
+    Requested_Equipment: [{ id: 'P2', name: 'Gerador 20 kVA' }, { id: 'P3' }],
+  }],
   Price_Books: [
     { id: 'PB1', Price_Book_Name: 'Tabela Construção 2026', Active: true },
     { id: 'PB2', Price_Book_Name: 'Tabela Particulares', Active: true },
@@ -32,10 +36,11 @@ const wait = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v),
 
 export function installZohoMock() {
   ;(window as any).ZOHO = {
-    embeddedApp: { on: (_e: string, cb: (p?: object) => void) => setTimeout(() => cb({}), 0), init: () => Promise.resolve() },
+    embeddedApp: { on: (_e: string, cb: (p?: object) => void) => setTimeout(() => cb(import.meta.env.VITE_MOCK_DEAL === 'true' ? { Entity: 'Deals', EntityId: ['D1'], ButtonPosition: 'DetailView' } : {}), 0), init: () => Promise.resolve() },
     CRM: {
       API: {
         searchRecord: ({ Entity, Query }: any) => wait({ data: (db[Entity] ?? []).filter((r) => JSON.stringify(r).toLowerCase().includes(String(Query).toLowerCase())) }),
+        getAllRecords: ({ Entity, per_page }: any) => wait({ data: (db[Entity] ?? []).slice(0, per_page ?? 10) }, 80),
         getRecord: ({ Entity, RecordID }: any) => wait({ data: [(db[Entity] ?? []).find((r) => r.id === RecordID)] }, 60),
         getRelatedRecords: ({ RecordID }: any) => wait({ data: priceBooks[RecordID] ?? [] }, 60),
       },
@@ -48,8 +53,8 @@ export function installZohoMock() {
           return wait({ code: 'success', details: { output: '' } }, 400)
         },
       },
-      UI: { Record: { open: (d: any) => { console.info('[mock] abrir registo', d); return Promise.resolve() } }, Resize: () => Promise.resolve() },
-      CONFIG: {},
+      UI: { Record: { create: (d: any) => { console.info('[mock] criar registo', d); return Promise.resolve() }, open: (d: any) => { console.info('[mock] abrir registo', d); return Promise.resolve() } }, Popup: { closeReload: () => { console.info('[mock] fechar e recarregar'); return Promise.resolve() } }, Resize: () => Promise.resolve() },
+      CONFIG: { getOrgInfo: () => Promise.resolve({ org: [{ zgid: '20120437488' }] }) },
     },
   }
 }

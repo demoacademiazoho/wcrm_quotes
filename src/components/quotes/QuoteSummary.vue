@@ -4,16 +4,31 @@
     <dl class="flex flex-col gap-2 text-sm">
       <div class="flex justify-between"><dt class="text-primary-200">Subtotal</dt><dd>{{ fmtEur(t.gross) }}</dd></div>
       <div v-if="t.lineDiscounts" class="flex justify-between"><dt class="text-primary-200">Descontos de linha</dt><dd>- {{ fmtEur(t.lineDiscounts) }}</dd></div>
-      <div v-if="t.companyDiscount" class="flex justify-between">
-        <dt class="text-primary-200">Desconto Empresa ({{ fmtNum(s.ctx.contractPct) }}%)</dt><dd>- {{ fmtEur(t.companyDiscount) }}</dd>
+      <div class="flex items-center justify-between gap-3">
+        <dt class="text-primary-200">Desconto geral</dt>
+        <dd>
+          <DiscountInput
+            id="general-discount"
+            inline
+            label="Desconto geral"
+            :mode="s.generalDiscount.mode"
+            :value="s.generalDiscount.value"
+            :amount="t.generalDiscount"
+            :gross="t.base"
+            @apply="s.setGeneralDiscount"
+          />
+        </dd>
       </div>
+      <p v-if="s.ctx.contractPct > 0 && !s.generalTouched" class="-mt-1 text-[11px] leading-snug text-primary-200">
+        Desconto contratual da Empresa ({{ fmtNum(s.ctx.contractPct) }} %) aplicado automaticamente.
+      </p>
       <div class="flex justify-between"><dt class="text-primary-200">IVA</dt><dd>{{ fmtEur(t.vat) }}</dd></div>
       <div class="flex items-center justify-between gap-3">
         <dt class="text-primary-200">Ajuste (€)</dt>
-        <dd><input v-model="s.adjustment" type="number" step="0.01" class="w-24 rounded-md border border-white/20 bg-white/10 px-2 py-1 text-right text-white outline-none focus:border-accent-500" /></dd>
+        <dd><input v-model="s.adjustment" type="number" step="0.01" class="w-24 rounded-md border border-white/20 bg-white/10 px-2 py-1 text-right text-white outline-none focus:border-primary-300" aria-label="Ajuste em euros" /></dd>
       </div>
       <div class="mt-1 flex items-baseline justify-between border-t border-white/20 pt-3">
-        <dt class="font-semibold">Total Geral</dt><dd class="text-xl font-bold text-orange-300">{{ fmtEur(t.grand) }}</dd>
+        <dt class="font-semibold">Total Geral</dt><dd class="text-xl font-bold text-primary-300">{{ fmtEur(t.grand) }}</dd>
       </div>
       <div class="flex justify-between border-t border-white/10 pt-2">
         <dt class="text-primary-200">Caução total</dt>
@@ -29,6 +44,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import DiscountInput from './DiscountInput.vue'
 import { useQuoteWizardStore } from '@/stores/quoteWizard'
 import { fmtEur, fmtNum } from '@/utils/quotePricing'
 

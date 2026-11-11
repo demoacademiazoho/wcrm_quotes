@@ -9,15 +9,19 @@
         type="text"
         autocomplete="off"
         :placeholder="placeholder"
+        :disabled="disabled"
         :class="[
           'w-full rounded-lg border bg-white px-3.5 py-2.5 pr-9 text-sm text-zinc-900 outline-none transition-all duration-150',
           'placeholder:text-zinc-400 focus:ring-2 focus:ring-offset-0',
           error
             ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
             : 'border-zinc-300 hover:border-zinc-400 focus:border-primary-500 focus:ring-primary-100',
+          disabled ? 'cursor-not-allowed bg-zinc-50 text-zinc-500' : '',
         ]"
         @input="onInput"
-        @focus="open = results.length > 0"
+        @focus="onFocus"
+        @click="onFocus"
+        @keydown.esc="open = false"
       />
       <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
         <svg v-if="loading" class="size-4 animate-spin text-zinc-400" fill="none" viewBox="0 0 24 24">
@@ -34,16 +38,27 @@
 
       <ul
         v-if="open"
-        class="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
+        role="listbox"
+        class="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
       >
         <li v-if="!results.length" class="px-3.5 py-2 text-sm text-zinc-400">Sem resultados</li>
         <li
           v-for="r in results"
           :key="r.id"
+          role="option"
           class="cursor-pointer px-3.5 py-2 text-sm text-zinc-800 hover:bg-primary-100"
           @mousedown.prevent="select(r)"
         >
           {{ r.name }}
+        </li>
+        <li v-if="createLabel" class="mt-1 border-t border-zinc-100 pt-1">
+          <button
+            type="button"
+            class="w-full cursor-pointer px-3.5 py-2 text-left text-sm font-medium text-primary-500 hover:bg-primary-100"
+            @mousedown.prevent="onCreate"
+          >
+            {{ createLabel }}
+          </button>
         </li>
       </ul>
     </div>
@@ -61,14 +76,19 @@ import type { Lookup } from '@/interfaces/quoteTypes'
 const props = defineProps<{
   modelValue: Lookup | null
   search: (query: string) => Promise<Lookup[]>
+  /** sugestões ao abrir a caixa vazia (opcional) */
+  suggest?: () => Promise<Lookup[]>
+  /** texto do link de criação no fim da lista (opcional), ex.: "Novo(a) Equipamento Catálogo" */
+  createLabel?: string
   id?: string
   label?: string
   placeholder?: string
   required?: boolean
+  disabled?: boolean
   error?: string
   hint?: string
 }>()
-const emit = defineEmits<{ 'update:modelValue': [value: Lookup | null] }>()
+const emit = defineEmits<{ 'update:modelValue': [value: Lookup | null]; create: [] }>()
 
 const root = ref<HTMLElement | null>(null)
 const text = ref(props.modelValue?.name ?? '')
@@ -82,11 +102,34 @@ let token = 0
 let typing = false
 watch(() => props.modelValue, (v) => { if (v) text.value = v.name; else if (!typing) text.value = '' })
 
+/** Caixa vazia: mostra as sugestões (se existirem), como nas listas nativas do CRM */
+async function showSuggestions() {
+  if (!props.suggest) { results.value = []; open.value = false; return }
+  const t = ++token
+  loading.value = true
+  open.value = true
+  const r = await props.suggest()
+  if (t !== token) return
+  results.value = r
+  loading.value = false
+}
+
+function onFocus() {
+  if (props.disabled || props.modelValue || open.value) return
+  if (text.value.trim().length < 2) void showSuggestions()
+  else open.value = results.value.length > 0
+}
+
+function onCreate() {
+  open.value = false
+  emit('create')
+}
+
 function onInput() {
   if (props.modelValue) { typing = true; emit('update:modelValue', null); setTimeout(() => { typing = false }) } // editar o texto anula a escolha
   clearTimeout(timer)
   const q = text.value.trim()
-  if (q.length < 2) { results.value = []; open.value = false; return }
+  if (q.length < 2) { token++; loading.value = false; void showSuggestions(); return }
   timer = setTimeout(async () => {
     const t = ++token
     loading.value = true

@@ -43,11 +43,11 @@ defineProps<{
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-zinc-900 text-white hover:bg-zinc-700 active:bg-zinc-800 focus-visible:ring-zinc-500 shadow-sm',
+    'bg-navy text-white hover:bg-primary-600 active:bg-primary-700 focus-visible:ring-primary-400 shadow-sm',
   accent:
-    'bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700 focus-visible:ring-primary-400 shadow-sm',
+    'bg-accent-500 text-white hover:bg-accent-600 active:bg-accent-600 focus-visible:ring-accent-400 shadow-sm',
   secondary:
-    'bg-white text-zinc-800 border border-zinc-300 hover:bg-zinc-50 active:bg-zinc-100 focus-visible:ring-zinc-400 shadow-sm',
+    'bg-white text-navy border border-line hover:bg-primary-100 active:bg-primary-200 focus-visible:ring-primary-400 shadow-sm',
   ghost:
     'bg-transparent text-zinc-700 hover:bg-zinc-100 active:bg-zinc-200 focus-visible:ring-zinc-400',
   danger:

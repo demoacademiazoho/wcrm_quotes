@@ -15,6 +15,8 @@ export const quoteConfig = {
   contactPriceBookField: 'Price_Book',
   /** isenção de caução (só existe em Empresas) */
   depositExemptField: 'Deposit_Exempt',
+  /** endereço do CRM (centro de dados EU), usado para abrir formulários de criação noutro separador */
+  crmBaseUrl: 'https://crm.zoho.eu/crm',
   /** funções Deluge no CRM */
   createFunction: 'fn_Quotes_createFromWizard',
   calcFunction: 'fn_Quotes_calcLines',

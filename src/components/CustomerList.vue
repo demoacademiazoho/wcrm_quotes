@@ -258,7 +258,7 @@ const filteredCustomers = computed(() => {
   )
 })
 
-const totalPages = computed(() => Math.ceil(filteredCustomers.length / itemsPerPage))
+const totalPages = computed(() => Math.ceil(filteredCustomers.value.length / itemsPerPage))
 
 const startIndex = computed(() => (currentPage.value - 1) * itemsPerPage)
 const endIndex = computed(() => startIndex.value + itemsPerPage)

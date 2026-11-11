@@ -1,5 +1,5 @@
 import { quoteConfig as cfg } from '@/config/quoteConfig'
-import type { LineCalc, LineState, PriceContext, ProductInfo, QuoteTotals } from '@/interfaces/quoteTypes'
+import type { GeneralDiscount, LineCalc, LineState, PriceContext, ProductInfo, QuoteTotals } from '@/interfaces/quoteTypes'
 
 export const r2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -36,7 +36,7 @@ export function calcLine(line: LineState, ctx: PriceContext): LineCalc {
   if (line.end < line.start) return emptyCalc('A data de fim é anterior à data de início.')
 
   const qty = toNumber(line.qty)
-  const discount = toNumber(line.discount)
+  const discountValue = toNumber(line.discount)
   const days = daysBetween(line.start, line.end)
   const price = ctx.prices[p.id]
   const unitPriceDay = price !== undefined ? price : p.unitPrice
@@ -59,6 +59,8 @@ export function calcLine(line: LineState, ctx: PriceContext): LineCalc {
   const unitTotal = r2(monthValue + weekValue + dayValue)
   const q = qty > 0 ? qty : 0
   const gross = r2(unitTotal * q)
+  // percentagem sobre o montante da linha (quantidade x preço do período) ou redução direta em euros
+  const discount = line.discountMode === 'pct' ? r2((gross * discountValue) / 100) : discountValue
   const base = r2(gross - discount)
 
   const calc: LineCalc = {
@@ -66,32 +68,48 @@ export function calcLine(line: LineState, ctx: PriceContext): LineCalc {
     monthFactor: p.monthFactor, weekFactor: p.weekFactor, months, weeks, looseDays,
     monthValue: r2(monthValue), weekValue: r2(weekValue), dayValue: r2(dayValue),
     unitTotal, gross, discount, base, vatPct: p.vatPct,
-    // IVA sobre a base sem desconto da linha e sem desconto da Empresa
-    vat: r2((base * (1 - ctx.contractPct / 100) * p.vatPct) / 100),
+    // IVA sobre a base da linha; o desconto geral é aplicado a seguir (applyGeneralVat)
+    vat: r2((base * p.vatPct) / 100),
     depositUnit: p.deposit, deposit: r2(p.deposit * q),
   }
   if (!(qty > 0)) { calc.ok = false; calc.error = 'A quantidade tem de ser superior a 0.' }
   else if (days < p.minDays) { calc.ok = false; calc.error = `O período do aluguer (${days} dias) é inferior ao mínimo do equipamento (${p.minDays} dias).` }
+  else if (line.discountMode === 'pct' && (discountValue < 0 || discountValue > 100)) { calc.ok = false; calc.error = 'A percentagem de desconto tem de estar entre 0 e 100.' }
   else if (discount < 0 || discount > gross) { calc.ok = false; calc.error = `O desconto da linha tem de estar entre 0 e ${gross.toFixed(2)} €.` }
   return calc
 }
 
-export function calcTotals(calcs: LineCalc[], ctx: PriceContext, hasAccount: boolean, adjustment: number): QuoteTotals {
+/** Desconto geral em euros e em % do total das linhas. Devolve erro se estiver fora de 0 .. total. */
+export function generalDiscountOf(base: number, g: GeneralDiscount): { amount: number; pct: number; error: string } {
+  const v = toNumber(g.value)
+  const amount = g.mode === 'pct' ? r2((base * v) / 100) : v
+  const pct = base > 0 ? (amount / base) * 100 : 0
+  let error = ''
+  if (g.mode === 'pct' && (v < 0 || v > 100)) error = 'A percentagem do desconto geral tem de estar entre 0 e 100.'
+  else if (amount < 0 || amount > base) error = `O desconto geral tem de estar entre 0 e ${base.toFixed(2)} €.`
+  return { amount, pct, error }
+}
+
+/** IVA de cada linha sobre a base já sem a parte do desconto geral */
+export function applyGeneralVat(calcs: LineCalc[], generalPct: number): LineCalc[] {
+  return calcs.map((c) => (c.ok ? { ...c, vat: r2((c.base * (1 - generalPct / 100) * c.vatPct) / 100) } : c))
+}
+
+export function calcTotals(calcs: LineCalc[], general: { amount: number; pct: number }, adjustment: number, depositExempt: boolean): QuoteTotals {
   const valid = calcs.filter((c) => c.ok)
   const sum = (f: (c: LineCalc) => number) => valid.reduce((a, c) => a + f(c), 0)
   const base = sum((c) => c.base)
-  // desconto da Empresa: sobre o total das linhas, só com Empresa
-  const companyDiscount = hasAccount ? r2((base * ctx.contractPct) / 100) : 0
   const vat = r2(sum((c) => c.vat))
   return {
     gross: r2(sum((c) => c.gross)),
     lineDiscounts: r2(sum((c) => c.discount)),
     base: r2(base),
-    companyDiscount,
+    generalDiscount: general.amount,
+    generalPct: general.pct,
     vat,
     adjustment,
-    grand: r2(base - companyDiscount + vat + adjustment),
-    deposit: ctx.depositExempt ? 0 : r2(sum((c) => c.deposit)),
+    grand: r2(base - general.amount + vat + adjustment),
+    deposit: depositExempt ? 0 : r2(sum((c) => c.deposit)),
   }
 }
 

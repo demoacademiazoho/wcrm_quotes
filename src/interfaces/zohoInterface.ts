@@ -21,6 +21,7 @@ export interface ZohoInterface {
       API: {
         searchRecord: (Object: { Entity: string; Type: string; Query: string }) => Promise<any>;
         getRecord: (Object: { Entity: string; RecordID: string }) => Promise<any>;
+        getAllRecords: (Object: { Entity: string; page?: number; per_page?: number; sort_order?: string; sort_by?: string }) => Promise<any>;
         getRelatedRecords: (Object: {
           Entity: string;
           RecordID: string;
@@ -40,7 +41,7 @@ export interface ZohoInterface {
         getFields: (Object: { Entity: string }) => Promise<any>;
       };
       UI: {
-        Resize: (Object: { width: number; height: number }) => Promise<any>;
+        Resize: (Object: { width: string; height: string }) => Promise<any>;
         Dialer: {
           maximize: () => Promise<any>;
           minimize: () => Promise<any>;
@@ -59,8 +60,9 @@ export interface ZohoInterface {
           }) => Promise<any>;
           create: (data: {
             Entity: string;
-            RecordID: string;
-            target: string;
+            RecordID?: string;
+            target?: string;
+            Target?: string;
           }) => Promise<any>;
           populate: (data: any) => Promise<any>;
         };

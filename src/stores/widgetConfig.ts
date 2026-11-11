@@ -25,8 +25,8 @@ interface WidgetConfig {
 
 export const useWidgetConfigStore = defineStore('widgetConfig', () => {
   const config = ref<WidgetConfig>({
-    title: 'Widget Title',
-    description: 'Widget Description',
+    title: 'Novo Pedido de Orçamento',
+    description: 'Wizard de criação de Pedidos de Orçamento (Equiply)',
     version: '1.0.0',
     domain: '',
     env: 'Production',
@@ -37,7 +37,7 @@ export const useWidgetConfigStore = defineStore('widgetConfig', () => {
       },
       Production: {
         baseUrl: '',
-        apiKey: '',
+        apiKey: '1003.095983f1df599a11ad920ac1ab24637e.c4734716e70ae6cc3c3c5e613fa948c5',
       },
     },
   })

@@ -5,6 +5,20 @@
       <div>
         <Button variant="secondary" @click="s.addLine">+ Adicionar linha</Button>
       </div>
+
+      <fieldset class="rounded-xl border border-line bg-white p-4 shadow-sm">
+        <legend class="px-2 text-sm font-semibold text-navy">Totais</legend>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Input
+            id="deposit"
+            :model-value="s.ctx.depositExempt ? 'Isento' : fmtEur(s.totals.deposit)"
+            label="Caução total (€)"
+            disabled
+            :hint="s.ctx.depositExempt ? 'Empresa isenta de caução.' : 'Soma da caução de cada equipamento × quantidade.'"
+          />
+          <Input id="promo" v-model="s.promoCode" label="Código promocional" />
+        </div>
+      </fieldset>
     </div>
     <QuoteSummary class="xl:sticky xl:top-4 xl:self-start" />
   </div>
@@ -12,9 +26,11 @@
 
 <script setup lang="ts">
 import Button from '@/components/buttons/Button.vue'
+import Input from '@/components/form/Input.vue'
 import QuoteLineCard from './QuoteLineCard.vue'
 import QuoteSummary from './QuoteSummary.vue'
 import { useQuoteWizardStore } from '@/stores/quoteWizard'
+import { fmtEur } from '@/utils/quotePricing'
 
 const s = useQuoteWizardStore()
 </script>

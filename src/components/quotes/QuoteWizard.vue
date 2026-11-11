@@ -2,10 +2,11 @@
   <div class="mx-auto flex max-w-6xl flex-col gap-5">
     <header class="flex items-center gap-4">
       <img src="@/assets/equiply-logo.png" alt="Equiply" class="h-9 w-auto" />
-      <div>
-        <h1 class="text-lg font-bold text-navy">Novo Pedido de Orçamento</h1>
-        <p class="text-xs text-muted">Aluguer de Equipamentos</p>
-      </div>
+      <h4 class="">Oportunidade</h4> 
+      <p class="border-l border-line pl-4 text-md text-muted">
+        <template v-if="s.source"><span class="text-md text-base font-semibold text-navy">{{ s.source.deal.name }}</span></template>
+        <template v-else>Equipa a obra. Sem complicações.</template>
+      </p>
     </header>
 
     <div v-if="s.result" class="rounded-xl border border-line bg-white p-8 text-center shadow-sm">
@@ -16,7 +17,8 @@
       <p v-if="s.result.warning" class="mx-auto mt-2 max-w-xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ s.result.warning }}</p>
       <div class="mt-5 flex justify-center gap-3">
         <Button variant="accent" @click="openQuote(s.result.id)">Abrir orçamento</Button>
-        <Button variant="secondary" @click="s.reset">Novo orçamento</Button>
+        <Button v-if="s.fromDeal" variant="secondary" @click="closeAndReloadPopup">Voltar à oportunidade</Button>
+        <Button v-else variant="secondary" @click="s.reset">Novo orçamento</Button>
       </div>
     </div>
 
@@ -31,7 +33,7 @@
         <StepItems v-else />
       </section>
 
-      <ul v-if="s.stepErrors.length" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <ul v-if="s.stepErrors.length" role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         <li v-for="e in s.stepErrors" :key="e">{{ e }}</li>
       </ul>
 
@@ -53,6 +55,7 @@ import StepAddress from './StepAddress.vue'
 import StepItems from './StepItems.vue'
 import { STEPS, useQuoteWizardStore } from '@/stores/quoteWizard'
 import { openQuote } from '@/utils/zohoQuotes'
+import { closeAndReloadPopup } from '@/utils/zohoFunctions'
 
 const s = useQuoteWizardStore()
 </script>

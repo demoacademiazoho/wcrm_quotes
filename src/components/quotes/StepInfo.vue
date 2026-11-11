@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-5">
-    <div class="rounded-lg border border-primary-200 bg-primary-100/60 px-4 py-3 text-sm text-navy">
+    <div v-if="!s.info.account && !s.info.contact" role="note" class="rounded-lg border border-primary-200 bg-primary-100/60 px-4 py-3 text-sm text-navy">
       Indique a <strong>Empresa</strong> ou o <strong>Contacto</strong> (pelo menos um). Com Empresa, é ela que define a
       tabela de preços, o desconto e a isenção de caução.
     </div>
@@ -24,6 +24,8 @@
         required
         placeholder="Pesquisar empresa..."
         :search="(q) => searchLookup('Accounts', q)"
+        :disabled="s.accountLocked"
+        :hint="s.accountLocked ? 'Definida pela oportunidade de origem.' : undefined"
         :error="s.fieldErrors.account"
         @update:model-value="clearParty"
       />
@@ -34,6 +36,8 @@
         required
         placeholder="Pesquisar contacto..."
         :search="(q) => searchLookup('Contacts', q)"
+        :disabled="s.contactLocked"
+        :hint="s.contactLocked ? 'Definido pela oportunidade de origem.' : undefined"
         :error="s.fieldErrors.contact"
         @update:model-value="clearParty"
       />
@@ -42,6 +46,8 @@
         v-model="s.info.deal"
         label="Oportunidade"
         placeholder="Pesquisar oportunidade..."
+        :disabled="s.fromDeal"
+        :hint="s.fromDeal ? 'Definida pela oportunidade de origem.' : undefined"
         :search="(q) => searchLookup('Deals', q)"
       />
       <DatePicker

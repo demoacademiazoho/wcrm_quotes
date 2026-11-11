@@ -46,8 +46,9 @@ export function buildQuotePayload(i: PayloadInput): Record<string, unknown> {
   if (i.info.contact) o.Contact_Name = { id: i.info.contact.id }
   if (i.info.account) {
     o.Account_Name = { id: i.info.account.id }
-    o.Discount = i.totals.companyDiscount // desconto da Empresa no Desconto geral
   }
+  // Desconto geral em euros (por defeito o contratual da Empresa; o utilizador pode alterá-lo)
+  if (i.totals.generalDiscount > 0) o.Discount = i.totals.generalDiscount
   if (i.info.deal) o.Deal_Name = { id: i.info.deal.id }
   if (i.info.requestOrigin) o.Request_Origin = i.info.requestOrigin
   if (toNumber(i.period.transportCost)) o.Transport_Cost = toNumber(i.period.transportCost)

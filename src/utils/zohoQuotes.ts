@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ZohoInterface } from '@/interfaces/zohoInterface'
-import type { Lookup, PriceContext, ProductInfo } from '@/interfaces/quoteTypes'
+import type { DealPrefill, Lookup, PriceContext, ProductInfo } from '@/interfaces/quoteTypes'
 import { quoteConfig as cfg } from '@/config/quoteConfig'
-import { useWidgetConfigStore } from '@/stores/widgetConfig'
-import { invokeCrmFunction } from '@/utils/zohoFunctions'
+import { functionRequest, getOrgInfo, invokeCrmFunction } from '@/utils/zohoFunctions'
 
 declare const ZOHO: ZohoInterface
 
@@ -24,6 +23,36 @@ export async function searchLookup(entity: LookupEntity, query: string): Promise
   } catch {
     return []
   }
+}
+
+/** Primeiros registos do módulo, para sugerir ao abrir a caixa de pesquisa (equipamentos inativos ficam de fora) */
+export async function suggestLookup(entity: LookupEntity, max = 8): Promise<Lookup[]> {
+  try {
+    const res = await ZOHO.CRM.API.getAllRecords({ Entity: entity, page: 1, per_page: 25 })
+    return ((res?.data as any[]) ?? [])
+      .filter((r) => r.Product_Active !== false)
+      .slice(0, max)
+      .map((r) => ({ id: String(r.id), name: nameOf[entity](r) }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Abre o formulário de criação do módulo num novo separador SEM fechar o popup do widget.
+ * HIPÓTESE: o ZOHO.CRM.UI.Record.create fecha o popup; por isso abre-se o endereço do CRM diretamente
+ * (https://crm.zoho.eu/crm/org<zgid>/tab/<Módulo>/create). Se o browser bloquear ou faltar o id da organização,
+ * recorre ao SDK (que pode fechar o popup).
+ */
+export async function openCreate(entity: LookupEntity): Promise<void> {
+  try {
+    const org = await getOrgInfo()
+    if (org?.zgid) {
+      const w = window.open(`${cfg.crmBaseUrl}/org${org.zgid}/tab/${entity}/create`, '_blank')
+      if (w) { w.opener = null; return }
+    }
+  } catch { /* sem id da organização: usa o SDK */ }
+  await ZOHO.CRM.UI.Record.create({ Entity: entity, Target: '_blank', target: '_blank' })
 }
 
 async function getRecord(entity: string, id: string): Promise<any | null> {
@@ -105,6 +134,38 @@ export async function loadPriceContext(account: Lookup | null, contact: Lookup |
   return { origin: 'Produto', prices: {}, contractPct: 0, depositExempt: false, note: '' }
 }
 
+const asLookup = (v: any, nameKey: string): Lookup | null =>
+  v && v.id ? { id: String(v.id), name: String(v.name ?? v[nameKey] ?? '') } : null
+
+/**
+ * Equipamentos pretendidos da Oportunidade (multi-lookup Requested_Equipment).
+ * HIPÓTESE: o SDK pode devolver [{id,name}] ou [{Requested_Equipment:{id,name}}]; aceitam-se os dois formatos.
+ */
+function equipmentOf(raw: unknown): Lookup[] {
+  const out: Lookup[] = []
+  for (const it of Array.isArray(raw) ? raw : []) {
+    const l = asLookup((it as any)?.Requested_Equipment ?? (it as any)?.Product_Name ?? it, 'Product_Name')
+    if (l && !out.some((o) => o.id === l.id)) out.push(l)
+  }
+  return out
+}
+
+/** Lê a Oportunidade e devolve o que pré-preenche o orçamento (Empresa, Contacto, datas pretendidas, equipamentos) */
+export async function loadDealPrefill(dealId: string): Promise<DealPrefill | null> {
+  const d = await getRecord('Deals', dealId)
+  if (!d) return null
+  return {
+    deal: { id: String(d.id), name: String(d.Deal_Name ?? '') },
+    subject: String(d.Deal_Name ?? ''),
+    account: asLookup(d.Account_Name, 'Account_Name'),
+    contact: asLookup(d.Contact_Name, 'Full_Name'),
+    start: d.Desired_Start_Date ?? '',
+    end: d.Desired_End_Date ?? '',
+    deliveryLocation: String(d.Delivery_Location ?? ''),
+    products: equipmentOf(d.Requested_Equipment),
+  }
+}
+
 /** Cria o orçamento pela função Deluge (API v8, grava as colunas personalizadas das linhas). Devolve o ID. */
 export async function createQuote(payload: Record<string, unknown>): Promise<string> {
   const out = await invokeCrmFunction(
@@ -119,11 +180,7 @@ export async function createQuote(payload: Record<string, unknown>): Promise<str
 
 /** Corre a fn_Quotes_calcLines no orçamento criado (Daily_Price, Line_Tax, caução, IVA, desconto Empresa) */
 export async function recalcQuote(id: string): Promise<void> {
-  const res = await ZOHO.CRM.FUNCTIONS.execute(cfg.calcFunction, {
-    auth_type: 'apikey',
-    zapikey: useWidgetConfigStore().apiKey,
-    arguments: JSON.stringify({ quoteId: id }),
-  })
+  const res = await ZOHO.CRM.FUNCTIONS.execute(cfg.calcFunction, functionRequest({ arguments: JSON.stringify({ quoteId: id }) }))
   if (res?.code !== 'success') throw res
 }
 

@@ -1,19 +1,38 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap");
 
-/* Identidade Equiply */
+/* Identidade Equiply (manual de marca v1.0, out/2026)
+   Azul-marinho #0B3A5B (base) · Azul #1F6FA8 (apoio) · Azul-claro #8CC4EE (sobre fundo escuro)
+   Laranja #F2541B só para a ação (botões principais) · Fonte Sora (carregada no index.html) */
 @theme {
   --font-sans: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --color-navy: #0b3a5b;
   --color-primary-100: #e3eef7;
   --color-primary-200: #c7dcec;
+  --color-primary-300: #8cc4ee;
   --color-primary-400: #5b9bc9;
   --color-primary-500: #1f6fa8;
   --color-primary-600: #185b8a;
   --color-primary-700: #0b3a5b;
-  --color-navy: #0b3a5b;
+  --color-accent-400: #ff7a45;
   --color-accent-500: #f2541b;
   --color-accent-600: #d9440f;
   --color-surface: #edf2f6;
   --color-line: #d3dee7;
   --color-muted: #4a6478;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-navy);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
 }
