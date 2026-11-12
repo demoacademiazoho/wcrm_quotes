@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto flex max-w-6xl flex-col gap-5">
+  <div class="flex w-full flex-col gap-5">
     <header class="flex items-center gap-4">
       <img src="@/assets/equiply-logo.png" alt="Equiply" class="h-9 w-auto" />
       <h1 class="sr-only">{{ s.isReview ? 'Rever Pedido de Orçamento' : 'Novo Pedido de Orçamento' }}</h1>
@@ -35,23 +35,29 @@
     <template v-else>
       <StepperBar :steps="STEPS" :current="s.step" @go="s.goTo" />
 
-      <section class="rounded-xl border border-line bg-white p-5 shadow-sm">
-        <h2 class="mb-4 text-base font-semibold text-navy">{{ s.step + 1 }}. {{ STEPS[s.step] }}</h2>
-        <StepInfo v-if="s.step === 0" />
-        <StepPeriod v-else-if="s.step === 1" />
-        <StepAddress v-else-if="s.step === 2" />
-        <StepItems v-else />
-      </section>
+      <!-- duas partes em todos os passos: informação do pedido (4/6) e Resumo (2/6) -->
+      <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-6">
+        <div class="flex min-w-0 flex-col gap-5 lg:col-span-4">
+          <section class="rounded-xl border border-line bg-white p-5 shadow-sm">
+            <h2 class="mb-4 text-base font-semibold text-navy">{{ s.step + 1 }}. {{ STEPS[s.step] }}</h2>
+            <StepInfo v-if="s.step === 0" />
+            <StepPeriod v-else-if="s.step === 1" />
+            <StepAddress v-else-if="s.step === 2" />
+            <StepItems v-else />
+          </section>
 
-      <ul v-if="s.stepErrors.length" role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        <li v-for="e in s.stepErrors" :key="e">{{ e }}</li>
-      </ul>
+          <ul v-if="s.stepErrors.length" role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <li v-for="e in s.stepErrors" :key="e">{{ e }}</li>
+          </ul>
 
-      <footer class="flex items-center justify-between">
-        <Button variant="secondary" :disabled="s.step === 0 || s.saving" @click="s.back">Voltar</Button>
-        <Button v-if="s.step < STEPS.length - 1" variant="accent" @click="s.next">Seguinte</Button>
-        <Button v-else variant="accent" :loading="s.saving" @click="s.save">{{ s.isReview ? 'Guardar revisão' : 'Guardar orçamento' }}</Button>
-      </footer>
+          <footer class="flex items-center justify-between">
+            <Button variant="secondary" :disabled="s.step === 0 || s.saving" @click="s.back">Voltar</Button>
+            <Button v-if="s.step < STEPS.length - 1" variant="accent" @click="s.next">Seguinte</Button>
+            <Button v-else variant="accent" :loading="s.saving" @click="s.save">{{ s.isReview ? 'Guardar revisão' : 'Guardar orçamento' }}</Button>
+          </footer>
+        </div>
+        <QuoteSummary class="lg:sticky lg:top-4 lg:col-span-2" />
+      </div>
     </template>
   </div>
 </template>
@@ -63,6 +69,7 @@ import StepInfo from './StepInfo.vue'
 import StepPeriod from './StepPeriod.vue'
 import StepAddress from './StepAddress.vue'
 import StepItems from './StepItems.vue'
+import QuoteSummary from './QuoteSummary.vue'
 import { STEPS, useQuoteWizardStore } from '@/stores/quoteWizard'
 import { openQuote } from '@/utils/zohoQuotes'
 import { closeAndReloadPopup } from '@/utils/zohoFunctions'

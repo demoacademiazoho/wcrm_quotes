@@ -6,7 +6,7 @@
     </div>
 
     <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
-      <div class="md:col-span-4">
+      <div class="md:col-span-12">
         <LookupInput
           :model-value="line.product"
           label="Equipamento"
@@ -14,7 +14,7 @@
           placeholder="Pesquisar equipamento..."
           :search="(q) => searchLookup('Products', q)"
           :suggest="() => suggestLookup('Products')"
-          create-label="Novo Equipamento Catálogo"
+          create-label="Novo(a) Equipamento Catálogo"
           @create="openCreate('Products')"
           @update:model-value="(v) => s.pickProduct(line, v)"
         />
@@ -50,7 +50,9 @@
 
       <p v-if="!calc.ok" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ calc.error }}</p>
 
-      <div v-else class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div v-else-if="showBreakdown" class="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+        <!-- TEMPORÁRIO: cards do detalhe do cálculo ocultos a pedido (repor com showBreakdown = true) -->
+        <template v-if="showBreakdown">
         <div class="rounded-lg border border-line bg-surface px-3 py-2">
           <p class="text-[11px] uppercase text-muted">Total meses</p>
           <p class="text-sm font-semibold text-navy">{{ fmtEur(calc.monthValue) }}</p>
@@ -71,6 +73,7 @@
           <p class="text-sm font-semibold text-navy">{{ fmtEur(calc.unitTotal) }}</p>
           <p class="text-[11px] text-muted">× {{ line.qty || 0 }} un.</p>
         </div>
+        </template>
         <div class="rounded-lg border border-primary-500/40 bg-primary-100 px-3 py-2">
           <p class="text-[11px] uppercase text-muted">Total da linha</p>
           <p class="text-sm font-bold text-navy">{{ fmtEur(calc.base) }}</p>
@@ -94,5 +97,7 @@ import { fmtEur, fmtNum } from '@/utils/quotePricing'
 
 const props = defineProps<{ line: LineState; index: number }>()
 const s = useQuoteWizardStore()
+/** TEMPORÁRIO: false oculta todos os cards de totais da linha (meses, semanas, dias, por unidade e total da linha) */
+const showBreakdown = false
 const calc = computed(() => s.calcs[props.index] as LineCalc)
 </script>

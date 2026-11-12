@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Equiply - Protótipo App de Terreno</title>
+<style>
+:root{
+  --navy:#14284B; --navy2:#1d3a6b; --blue:#2563EB; --yellow:#F5B800; --green:#1E9E5A; --red:#D33F3F;
+  --bg:#EEF2F8; --card:#fff; --text:#14284B; --muted:#6B7A90; --line:#E1E7F0;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#cfd6e2;color:var(--text);min-height:100vh;display:flex;justify-content:center;align-items:center}
+.phone{width:100%;max-width:400px;height:100vh;max-height:820px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+@media(min-width:500px){.phone{border-radius:34px;box-shadow:0 20px 60px rgba(20,40,75,.35);border:8px solid #0d1830}}
+.screen{flex:1;overflow-y:auto;padding-bottom:12px}
+/* header */
+.hdr{background:var(--navy);color:#fff;padding:16px 18px 54px;position:relative}
+.hdr.small{padding-bottom:18px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:.08em;font-size:17px}
+.brand svg{width:28px;height:28px}
+.hdr h1{font-size:25px;margin-top:20px;font-weight:800;max-width:70%}
+.hdr h2{font-size:20px;margin-top:14px;font-weight:700}
+.avatar{position:absolute;right:16px;top:14px;width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#F5B800,#f7cf55);border:3px solid #fff3;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:var(--navy)}
+.back{background:none;border:0;color:#fff;font-size:15px;display:flex;align-items:center;gap:4px;margin-bottom:6px;cursor:pointer}
+/* home */
+.panel{background:var(--bg);margin-top:-36px;border-radius:26px 26px 0 0;padding:16px 14px 6px;position:relative}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{background:var(--card);border:0;border-radius:18px;padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(20,40,75,.08);cursor:pointer;font-size:17px;font-weight:700;color:var(--text);position:relative}
+.tile svg{width:62px;height:62px}
+.tile:active{transform:scale(.97)}
+.count{position:absolute;top:10px;right:12px;background:var(--blue);color:#fff;font-size:12px;min-width:22px;height:22px;border-radius:11px;display:flex;align-items:center;justify-content:center;padding:0 6px}
+.status-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.stat{background:var(--card);border-radius:14px;padding:12px;box-shadow:0 2px 8px rgba(20,40,75,.08)}
+.stat .t{font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.stat .v{font-size:22px;font-weight:800;margin-top:6px}
+.dot{width:22px;height:22px;border-radius:50%;background:var(--yellow);color:var(--navy);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.dot.ok{background:var(--green);color:#fff}
+.dot.off{background:var(--red);color:#fff}
+.v.ok{color:var(--green)} .v.off{color:var(--red)} .v.warn{color:var(--yellow)}
+.sub{font-size:11px;color:var(--muted);margin-top:2px;font-weight:500}
+.sect{margin:16px 4px 8px;font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+/* lists */
+.list{padding:14px 14px 4px;display:flex;flex-direction:column;gap:10px}
+.item{background:var(--card);border-radius:16px;padding:12px 14px;box-shadow:0 2px 8px rgba(20,40,75,.07);border-left:5px solid var(--blue);cursor:pointer}
+.item.Recolha{border-left-color:#0f4fd6}.item.Entrega{border-left-color:var(--navy)}.item.Inspeção{border-left-color:var(--yellow)}
+.item .r1{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px}
+.item .r2{font-size:13px;color:var(--muted);margin-top:4px}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;background:#E8EEFB;color:var(--blue);white-space:nowrap}
+.badge.Em-curso{background:#FFF3CC;color:#8a6500}
+.badge.Concluída,.badge.Aprovada{background:#DDF4E7;color:var(--green)}
+.badge.Falhada,.badge.Reprovada{background:#FBE1E1;color:var(--red)}
+.empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px}
+.filter{display:flex;gap:8px;padding:12px 14px 0}
+.chip{border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+/* detail */
+.box{background:var(--card);border-radius:16px;padding:14px;margin:12px 14px 0;box-shadow:0 2px 8px rgba(20,40,75,.07)}
+.row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.row:last-child{border:0}.row span:first-child{color:var(--muted)}.row span:last-child{font-weight:600;text-align:right}
+.box h3{font-size:14px;margin-bottom:6px}
+label.f{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px;font-weight:600}
+input[type=text],input[type=number],textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:15px;font-family:inherit;background:#fff;color:var(--text)}
+.photos{display:flex;gap:8px;flex-wrap:wrap}
+.ph{width:64px;height:64px;border-radius:10px;background:#dfe6f2;border:1px dashed #9db0d0;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--blue);cursor:pointer;overflow:hidden}
+.ph.has{background:linear-gradient(135deg,#9fb6e6,#6b8bd1);color:#fff;border:0;font-size:12px;font-weight:700}
+.check{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.check:last-child{border:0}
+.check input{width:20px;height:20px;accent-color:var(--green)}
+.actions{display:flex;flex-direction:column;gap:10px;padding:14px}
+.btn{border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;color:#fff;background:var(--blue)}
+.btn.ok{background:var(--green)}.btn.bad{background:var(--red)}.btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn:disabled{opacity:.45}
+.err{color:var(--red);font-size:13px;margin-top:6px;display:none}
+/* bottom nav */
+.nav{display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border-top:1px solid var(--line);padding:6px 2px calc(6px + env(safe-area-inset-bottom))}
+.nav button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;font-weight:600;color:var(--muted);cursor:pointer;padding:4px 0}
+.nav button svg{width:24px;height:24px}
+.nav button.on{color:var(--blue)}
+.toast{position:absolute;left:14px;right:14px;bottom:76px;background:var(--navy);color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;z-index:5}
+.toast.show{opacity:1;transform:none}
+.proto{position:absolute;top:0;left:0;right:0;background:#F5B800;color:#14284B;font-size:10px;font-weight:700;text-align:center;padding:2px;z-index:6}
+</style>
+</head>
+<body>
+<div class="phone" id="app">
+  <div class="proto">PROTÓTIPO - dados de exemplo, sem ligação ao CRM</div>
+  <div class="screen" id="screen" style="padding-top:16px"></div>
+  <div class="nav" id="nav"></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ---------- ícones (SVG inline) ---------- */
+const I = {
+  logo:'<svg viewBox="0 0 32 32"><path d="M16 2 4 9v14l12 7 12-7V9z" fill="#2563EB"/><path d="M11 11h10v3h-7v2h6v3h-6v2h7v3H11z" fill="#fff"/></svg>',
+  truck:'<svg viewBox="0 0 64 64" fill="none"><g fill="#14284B"><path d="M4 18h34v24H4z"/><path d="M40 26h10l9 10v6H40z"/><circle cx="16" cy="46" r="6" stroke="#fff" stroke-width="2"/><circle cx="48" cy="46" r="6" stroke="#fff" stroke-width="2"/></g><path d="M44 29h5l5 6h-10z" fill="#fff"/><path d="M0 24h12M2 30h10" stroke="#14284B" stroke-width="3" stroke-linecap="round"/></svg>',
+  fork:'<svg viewBox="0 0 64 64" fill="none"><g fill="#14284B"><path d="M20 8h4v40h-4z"/><path d="M26 28h14l6 12v10H22z"/><path d="M24 48h-4v6h26v-6z"/><circle cx="30" cy="52" r="6" stroke="#fff" stroke-width="2"/><circle cx="46" cy="52" r="5" stroke="#fff" stroke-width="2"/><path d="M12 54h20v4H12z"/></g></svg>',
+  clip:'<svg viewBox="0 0 64 64" fill="none"><rect x="12" y="10" width="40" height="46" rx="6" stroke="#14284B" stroke-width="4"/><rect x="22" y="5" width="20" height="10" rx="3" fill="#14284B"/><path d="M22 36l7 7 14-15" stroke="#2563EB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clock:'<svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="24" stroke="#14284B" stroke-width="5"/><path d="M32 18v15l10 6" stroke="#14284B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+  truckS:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h12v10H2z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  forkS:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v15"/><path d="M9 11h6l3 5v3H9z"/><path d="M3 21h8"/><circle cx="12" cy="20" r="1.5"/></svg>',
+  clipS:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 14l2 2 4-5"/></svg>',
+  clockS:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  sync:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>'
+};
+
+/* ---------- dados de exemplo ---------- */
+const USER = { nome:'João Silva', primeiro:'João' };
+const TODAY = new Date();
+let DATA = [
+  {id:'ER-0101', tipo:'Entrega',  cliente:'Construções Almeida, Lda', morada:'Rua das Oficinas 12, Braga',     hora:'08:30', estado:'Agendada', reserva:'RES-0231', equip:'Retroescavadora CAT 432 (2 un.)', contacto:'Pedro Almeida - 912 345 678'},
+  {id:'ER-0102', tipo:'Entrega',  cliente:'Obras do Minho, SA',       morada:'Av. da Liberdade 210, Guimarães', hora:'10:15', estado:'Agendada', reserva:'RES-0233', equip:'Andaime modular 200 m2',          contacto:'Sandra Costa - 933 111 222'},
+  {id:'ER-0103', tipo:'Entrega',  cliente:'Metalúrgica Norte',        morada:'Zona Industrial, Famalicão',      hora:'14:00', estado:'Em curso', reserva:'RES-0236', equip:'Empilhador Linde H25',            contacto:'Rui Faria - 965 777 000'},
+  {id:'ER-0104', tipo:'Recolha',  cliente:'Edifícios Vale, Lda',      morada:'Rua do Souto 5, Braga',           hora:'09:00', estado:'Agendada', reserva:'RES-0219', equip:'Plataforma elevatória 12 m',      contacto:'Ana Vale - 918 000 123'},
+  {id:'ER-0105', tipo:'Recolha',  cliente:'Casa & Obra, Lda',         morada:'Rua Nova 88, Barcelos',           hora:'16:30', estado:'Agendada', reserva:'RES-0221', equip:'Compressor Atlas 7 bar',          contacto:'Hugo Pires - 927 654 321'},
+  {id:'IN-0201', tipo:'Inspeção', cliente:'Armazém Central',          morada:'Unidade EQ-0045 (pós-devolução)', hora:'11:00', estado:'Agendada', reserva:'RES-0214', equip:'Betoneira 350 L',                 contacto:'-'},
+  {id:'IN-0202', tipo:'Inspeção', cliente:'Armazém Central',          morada:'Unidade EQ-0051 (pós-devolução)', hora:'15:00', estado:'Agendada', reserva:'RES-0217', equip:'Martelo demolidor 25 kg',         contacto:'-'},
+  {id:'ER-0090', tipo:'Entrega',  cliente:'Tecnoconstrói, Lda',       morada:'Rua do Carmo 3, Porto',           hora:'ontem 09:00', estado:'Concluída', reserva:'RES-0205', equip:'Grua torre 30 m', contacto:'-'},
+  {id:'ER-0091', tipo:'Recolha',  cliente:'Metalúrgica Norte',        morada:'Zona Industrial, Famalicão',      hora:'ontem 17:00', estado:'Falhada', reserva:'RES-0198', equip:'Gerador 60 kVA', contacto:'-'},
+  {id:'IN-0190', tipo:'Inspeção', cliente:'Armazém Central',          morada:'Unidade EQ-0032',                 hora:'ontem 11:30', estado:'Aprovada', reserva:'RES-0190', equip:'Serra de disco', contacto:'-'}
+];
+const CHECKLIST = ['Aspeto geral / danos visíveis','Nível de combustível / bateria','Fluidos e fugas','Acessórios completos','Limpeza'];
+const FINAL = ['Concluída','Falhada','Aprovada','Reprovada'];
+const pendentes = () => DATA.filter(d => !FINAL.includes(d.estado));
+const porTipo = t => DATA.filter(d => d.tipo === t);
+
+/* ---------- estado da app ---------- */
+let route = {name:'home'};
+let filtro = 'Todas';
+let draft = {};
+
+const $ = s => document.querySelector(s);
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function saudacao(){ const h=TODAY.getHours(); return h<12?'Bom dia':h<20?'Boa tarde':'Boa noite'; }
+function go(name,extra={}){ route={name,...extra}; draft = (name==='detail')?{fotos:0,assin:false,check:{}}:draft; render(); $('#screen').scrollTop=0; }
+function online(){ return navigator.onLine; }
+
+/* ---------- componentes ---------- */
+function header(title, back){
+  return `<div class="hdr small">
+    <div class="brand">${I.logo}EQUIPLY</div>
+    ${back?`<h2><button class="back" onclick="go('${back}')">&#8249; Voltar</button>${title}</h2>`:`<h2>${title}</h2>`}
+  </div>`;
+}
+function itemCard(d){
+  const cls = d.estado.replace(' ','-');
+  return `<div class="item ${d.tipo}" onclick="go('detail',{id:'${d.id}'})">
+    <div class="r1"><span>${d.hora} &middot; ${d.cliente}</span><span class="badge ${cls}">${d.estado}</span></div>
+    <div class="r2">${d.tipo} &middot; ${d.equip}</div>
+    <div class="r2">${d.morada}</div>
+  </div>`;
+}
+
+/* ---------- ecrãs ---------- */
+function viewHome(){
+  const pend = pendentes().length;
+  const on = online();
+  const cnt = t => pendentes().filter(d=>d.tipo===t).length;
+  return `
+  <div class="hdr">
+    <div class="brand">${I.logo}EQUIPLY</div>
+    <h1>${saudacao()}, ${USER.primeiro}!</h1>
+    <div class="avatar">JS</div>
+  </div>
+  <div class="panel">
+    <div class="grid">
+      <button class="tile" onclick="go('list',{tipo:'Entrega'})">${cnt('Entrega')?`<span class="count">${cnt('Entrega')}</span>`:''}${I.truck}Entregas</button>
+      <button class="tile" onclick="go('list',{tipo:'Recolha'})">${cnt('Recolha')?`<span class="count">${cnt('Recolha')}</span>`:''}${I.fork}Recolhas</button>
+      <button class="tile" onclick="go('list',{tipo:'Inspeção'})">${cnt('Inspeção')?`<span class="count">${cnt('Inspeção')}</span>`:''}${I.clip}Inspeções</button>
+      <button class="tile" onclick="go('history')">${I.clock}Histórico</button>
+    </div>
+    <div class="status-row">
+      <div class="stat"><div class="t">Operações Pendentes <span class="dot">${pend}</span></div><div class="v warn">${pend}</div><div class="sub">por concluir hoje</div></div>
+      <div class="stat"><div class="t">Estado da Sincronização <span class="dot ${on?'ok':'off'}">${on?I.sync:'!'}</span></div><div class="v ${on?'ok':'off'}">${on?'Sincronizado':'Sem ligação'}</div><div class="sub">última leitura ${new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</div></div>
+    </div>
+    <div class="sect">Próxima operação</div>
+    ${(()=>{const n=pendentes().sort((a,b)=>a.hora.localeCompare(b.hora))[0]; return n?itemCard(n):'<div class="empty">Sem operações pendentes.</div>';})()}
+  </div>`;
+}
+
+function viewList(tipo){
+  const todas = porTipo(tipo).filter(d=>!FINAL.includes(d.estado));
+  const lista = filtro==='Em curso' ? todas.filter(d=>d.estado==='Em curso') : filtro==='Agendadas' ? todas.filter(d=>d.estado==='Agendada') : todas;
+  const titulo = {Entrega:'Entregas de hoje',Recolha:'Recolhas de hoje','Inspeção':'Inspeções pendentes'}[tipo];
+  return header(titulo,'home') +
+    `<div class="filter">${['Todas','Agendadas','Em curso'].map(f=>`<button class="chip ${filtro===f?'on':''}" onclick="filtro='${f}';render()">${f}</button>`).join('')}</div>
+     <div class="list">${lista.length?lista.map(itemCard).join(''):'<div class="empty">Sem registos para este filtro.</div>'}</div>`;
+}
+
+function viewHistory(){
+  const lista = DATA.filter(d=>FINAL.includes(d.estado));
+  return header('Histórico','home') + `<div class="list">${lista.length?lista.map(itemCard).join(''):'<div class="empty">Sem histórico.</div>'}</div>`;
+}
+
+function viewDetail(id){
+  const d = DATA.find(x=>x.id===id); if(!d) return '';
+  const back = FINAL.includes(d.estado) ? 'history' : 'list';
+  const cls = d.estado.replace(' ','-');
+  const isIns = d.tipo==='Inspeção';
+  let corpo = `
+  <div class="box">
+    <div class="row"><span>Registo</span><span>${d.id}</span></div>
+    <div class="row"><span>Estado</span><span class="badge ${cls}">${d.estado}</span></div>
+    <div class="row"><span>Hora</span><span>${d.hora}</span></div>
+    <div class="row"><span>Reserva</span><span>${d.reserva}</span></div>
+    <div class="row"><span>Cliente</span><span>${d.cliente}</span></div>
+    <div class="row"><span>${isIns?'Unidade':'Morada'}</span><span>${d.morada}</span></div>
+    <div class="row"><span>Equipamento</span><span>${d.equip}</span></div>
+    ${isIns?'':`<div class="row"><span>Contacto no local</span><span>${d.contacto}</span></div>`}
+  </div>`;
+
+  if(d.estado==='Em curso' && !isIns){
+    corpo += `<div class="box"><h3>Concluir ${d.tipo.toLowerCase()}</h3>
+      <label class="f">Fotografias</label>
+      <div class="photos">${[0,1,2].map(i=>`<div class="ph ${i<draft.fotos?'has':''}" onclick="addFoto()">${i<draft.fotos?'foto '+(i+1):'+'}</div>`).join('')}</div>
+      <label class="f">Comprovativo (assinatura do cliente)</label>
+      <div class="ph ${draft.assin?'has':''}" style="width:100%;height:70px" onclick="draft.assin=!draft.assin;render()">${draft.assin?'Assinatura registada':'Tocar para assinar'}</div>
+      <label class="f">Horímetro</label><input type="number" id="horimetro" placeholder="ex.: 1250">
+      <div class="err" id="err">Falta: <span id="errtxt"></span></div></div>`;
+  }
+  if(d.estado==='Em curso' && isIns){
+    corpo += `<div class="box"><h3>Checklist</h3>${CHECKLIST.map((c,i)=>`<label class="check"><input type="checkbox" ${draft.check[i]?'checked':''} onchange="draft.check[${i}]=this.checked">${c}</label>`).join('')}
+      <label class="f">Fotografias</label><div class="photos">${[0,1,2].map(i=>`<div class="ph ${i<draft.fotos?'has':''}" onclick="addFoto()">${i<draft.fotos?'foto '+(i+1):'+'}</div>`).join('')}</div>
+      <label class="f">Descrição de danos (obrigatória se reprovar)</label><textarea id="danos" rows="2"></textarea>
+      <div class="err" id="err"><span id="errtxt"></span></div></div>`;
+  }
+
+  let acoes='';
+  if(d.estado==='Agendada'){
+    acoes = isIns
+      ? `<button class="btn" onclick="setEstado('${d.id}','Em curso','Inspeção iniciada.')">Iniciar inspeção</button>`
+      : `<button class="btn" onclick="iniciar('${d.id}')">Iniciar ${d.tipo.toLowerCase()}</button>`;
+  } else if(d.estado==='Em curso'){
+    acoes = isIns
+      ? `<button class="btn ok" onclick="aprovar('${d.id}')">Aprovar</button><button class="btn bad" onclick="reprovar('${d.id}')">Reprovar - avaria</button>`
+      : `<button class="btn ok" onclick="concluir('${d.id}')">Concluir</button>
+         <button class="btn bad" onclick="falhar('${d.id}')">Falhar</button>`;
+  }
+  return header(`${d.tipo} ${d.id}`, back) + corpo + `<div class="actions">${acoes}</div>`;
+}
+
+/* ---------- ações (simulam as transições do BP03 / BP04) ---------- */
+function addFoto(){ if(draft.fotos<3){draft.fotos++;render();} else toast('Máximo de 3 fotografias no protótipo.'); }
+function setEstado(id,est,msg){ DATA.find(x=>x.id===id).estado=est; toast(msg); render(); }
+function iniciar(id){ setEstado(id,'Em curso','Transição "Iniciar" executada (BP03). Viatura exigida no CRM.'); }
+function showErr(t){ $('#errtxt').textContent=t; $('#err').style.display='block'; }
+function concluir(id){
+  const falta=[]; if(!draft.fotos) falta.push('fotografias'); if(!draft.assin) falta.push('comprovativo'); if(!$('#horimetro').value) falta.push('horímetro');
+  if(falta.length) return showErr(falta.join(', '));
+  setEstado(id,'Concluída','Entrega/Recolha concluída. Anexos e horímetro gravados.'); setTimeout(()=>go('home'),900);
+}
+function falhar(id){
+  const m = prompt('Motivo da falha (obrigatório):'); if(!m) return toast('Motivo obrigatório para falhar.');
+  setEstado(id,'Falhada','Marcada como falhada. Tarefa de reagendamento criada (WF16).'); setTimeout(()=>go('home'),900);
+}
+function aprovar(id){
+  const feitos = Object.values(draft.check).filter(Boolean).length;
+  if(feitos<CHECKLIST.length) return showErr('Complete todos os itens da checklist.');
+  setEstado(id,'Aprovada','Inspeção aprovada. Unidade volta a Disponível.'); setTimeout(()=>go('home'),900);
+}
+function reprovar(id){
+  if(!$('#danos').value.trim()) return showErr('Descreva os danos detetados.');
+  setEstado(id,'Reprovada','Inspeção reprovada. Manutenção criada (BP05).'); setTimeout(()=>go('home'),900);
+}
+
+/* ---------- navegação inferior e render ---------- */
+function nav(){
+  const items=[['home','Início',I.home,()=>go('home')],['Entrega','Entregas',I.truckS,()=>go('list',{tipo:'Entrega'})],['Recolha','Recolhas',I.forkS,()=>go('list',{tipo:'Recolha'})],['Inspeção','Inspeções',I.clipS,()=>go('list',{tipo:'Inspeção'})],['history','Histórico',I.clockS,()=>go('history')]];
+  const cur = route.name==='home'?'home':route.name==='history'?'history':route.name==='list'?route.tipo:(DATA.find(x=>x.id===route.id)||{}).tipo;
+  $('#nav').innerHTML = items.map((it,i)=>`<button class="${cur===it[0]?'on':''}" id="nv${i}">${it[2]}${it[1]}</button>`).join('');
+  items.forEach((it,i)=>$('#nv'+i).onclick=it[3]);
+}
+function render(){
+  const s=$('#screen');
+  s.style.paddingTop = '16px';
+  s.innerHTML = route.name==='home'?viewHome():route.name==='list'?viewList(route.tipo):route.name==='history'?viewHistory():viewDetail(route.id);
+  nav();
+}
+window.addEventListener('online',render); window.addEventListener('offline',render);
+render();
+</script>
+</body>
+</html>

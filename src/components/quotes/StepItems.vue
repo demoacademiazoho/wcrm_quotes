@@ -1,5 +1,5 @@
 <template>
-  <div class="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_300px]">
+  <div class="flex flex-col gap-4">
     <div class="flex flex-col gap-4">
       <QuoteLineCard v-for="(l, i) in s.lines" :key="l.uid" :line="l" :index="i" />
       <div>
@@ -20,7 +20,6 @@
         </div>
       </fieldset>
     </div>
-    <QuoteSummary class="xl:sticky xl:top-4 xl:self-start" />
   </div>
 </template>
 
@@ -28,7 +27,6 @@
 import Button from '@/components/buttons/Button.vue'
 import Input from '@/components/form/Input.vue'
 import QuoteLineCard from './QuoteLineCard.vue'
-import QuoteSummary from './QuoteSummary.vue'
 import { useQuoteWizardStore } from '@/stores/quoteWizard'
 import { fmtEur } from '@/utils/quotePricing'
 

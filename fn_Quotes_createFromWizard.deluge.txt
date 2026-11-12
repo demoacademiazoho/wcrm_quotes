@@ -1,10 +1,11 @@
 string automation.fn_Quotes_createFromWizard(String payload)
 {
-	// v1.1 | 11/11/2026 | David Domingues
-	// ref. MR-XXX (preencher)
+	// v1.2 | 11/11/2026 | David Domingues
+	// ref. MR-XXX (a definir ainda)
 	// Cria o Pedido de Orçamento (Quotes) pela API v8 com o JSON montado pelo widget (campos do Quotes + Quoted_Items com as colunas personalizadas das linhas).
 	DEBUG = false;
 	CRM_API = "https://www.zohoapis.eu/crm/v8/";
+	resultado = "";
 	info "INÍCIO fn_Quotes_createFromWizard";
 	try
 	{
@@ -43,7 +44,7 @@ string automation.fn_Quotes_createFromWizard(String payload)
 		{
 			info "FIM fn_Quotes_createFromWizard | " + dados.get(0).get("code");
 		}
-		return resp.toString();
+		resultado = resp.toString();
 	}
 	catch (e)
 	{
@@ -55,6 +56,7 @@ string automation.fn_Quotes_createFromWizard(String payload)
 		lista.add(item);
 		erro = Map();
 		erro.put("data",lista);
-		return erro.toString();
+		resultado = erro.toString();
 	}
+	return resultado;
 }
