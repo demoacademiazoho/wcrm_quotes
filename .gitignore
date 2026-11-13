@@ -42,3 +42,5 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+*.txt
+fn_Quotes_calcLines.deluge.txt
