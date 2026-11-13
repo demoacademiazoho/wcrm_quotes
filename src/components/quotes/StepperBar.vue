@@ -3,22 +3,22 @@
     <li v-for="(label, i) in steps" :key="label">
       <button
         type="button"
-        :disabled="i >= current"
+        :disabled="i === current || (!anyStep && i > current)"
         :aria-current="i === current ? 'step' : undefined"
         :class="[
           'flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors',
           i === current ? 'border-navy bg-white font-semibold text-navy shadow-sm' : 'border-line bg-white/60 text-muted',
-          i < current ? 'cursor-pointer hover:border-primary-400' : 'cursor-default',
+          i !== current && (anyStep || i < current) ? 'cursor-pointer hover:border-primary-400' : 'cursor-default',
         ]"
         @click="$emit('go', i)"
       >
         <span
           :class="[
             'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-            i < current ? 'bg-primary-500 text-white' : i === current ? 'bg-navy text-white' : 'bg-surface text-muted border border-line',
+            (anyStep ? i !== current : i < current) ? 'bg-primary-500 text-white' : i === current ? 'bg-navy text-white' : 'bg-surface text-muted border border-line',
           ]"
         >
-          <svg v-if="i < current" class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg v-if="anyStep ? i !== current : i < current" class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
           </svg>
           <template v-else>{{ i + 1 }}</template>
@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ steps: readonly string[]; current: number }>()
+/** anyStep: permite saltar para qualquer passo (revisão: os dados já estão todos preenchidos) */
+defineProps<{ steps: readonly string[]; current: number; anyStep?: boolean }>()
 defineEmits<{ go: [index: number] }>()
 </script>

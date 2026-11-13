@@ -41,11 +41,13 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   const reviewId = ref('')
   const reviewStage = ref('')
   const isReview = computed(() => !!reviewId.value)
-  /** motivo pelo qual o orçamento não pode ser revisto (fase fora de Rascunho/Revisão ou não encontrado); vazio = pode */
+  /** motivo pelo qual o orçamento não pode ser revisto (fase diferente de Revisão ou não encontrado); vazio = pode */
   const blockedReason = ref('')
   /** Empresa e Contacto vindos da Oportunidade ficam bloqueados; se a Oportunidade não os tem, ficam editáveis */
   const accountLocked = computed(() => isReview.value || !!source.value?.account)
   const contactLocked = computed(() => isReview.value || !!source.value?.contact)
+  /** abertura livre (Pedidos de Orçamento > Novo): nem Oportunidade nem revisão */
+  const isFree = computed(() => !isReview.value && !fromDeal.value)
   const dealLocked = computed(() => isReview.value || fromDeal.value)
   let pendingProducts: Lookup[] = []
   let uid = 0
@@ -86,6 +88,22 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     return true
   }
 
+  // ── abertura livre: ao escolher uma Oportunidade, completa o que estiver vazio ──
+  let dealToken = 0
+  watch(() => info.deal?.id, async (id) => {
+    if (!id || fromDeal.value || isReview.value) return
+    const token = ++dealToken
+    const d = await loadDealPrefill(id)
+    if (!d || token !== dealToken || info.deal?.id !== id) return
+    if (!info.account && d.account) info.account = d.account
+    if (!info.contact && d.contact) info.contact = d.contact
+    if (!info.subject.trim()) info.subject = d.subject
+    if (!period.start) period.start = d.start
+    if (!period.end) period.end = d.end
+    if (!lines.value.length) pendingProducts = [...d.products]
+    if (d.account || d.contact) { clearError('account'); clearError('contact') }
+  })
+
   // ── origem: orçamento existente (revisão) ──────────────────────────────────
   /** Carrega o orçamento e as linhas. Devolve false se não foi possível ler; fases não editáveis ficam em blockedReason. */
   async function initFromQuote(quoteId: string): Promise<boolean> {
@@ -109,7 +127,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     adjustment.value = q.adjustment
     promoCode.value = q.promoCode
     for (const r of q.lines) {
-      lines.value.push({ uid: ++uid, product: r.product, info: null, start: r.start, end: r.end, qty: r.qty,
+      lines.value.push({ uid: ++uid, product: r.product, info: null, start: r.start || q.period.start, end: r.end || q.period.end, qty: r.qty,
         discount: r.discount > 0 ? String(r.discount) : '', discountMode: 'amount', loading: true })
     }
     // carrega os dados dos equipamentos (preço, fatores, IVA) e o contexto de preços antes de mostrar o assistente
@@ -120,7 +138,23 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
         l.loading = false
       }),
     ])
+    // a revisão abre direto nos itens; os restantes passos ficam acessíveis pelo menu de passos
+    step.value = STEPS.length - 1
     return true
+  }
+
+  /** Revisão: depois de guardar, recarrega o orçamento (já atualizado) e volta aos itens para continuar a rever */
+  const reloading = ref(false)
+  async function reopenReview(): Promise<void> {
+    const id = reviewId.value
+    if (!id) return
+    reloading.value = true
+    try {
+      reset()
+      if (!(await initFromQuote(id))) stepErrors.value = ['Não foi possível voltar a ler o orçamento.']
+    } finally {
+      reloading.value = false
+    }
   }
 
   // ── linhas ─────────────────────────────────────────────────────────────────
@@ -192,7 +226,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     return true
   }
   function back() { stepErrors.value = []; if (step.value > 0) step.value-- }
-  function goTo(n: number) { if (n < step.value) { stepErrors.value = []; step.value = n } }
+  function goTo(n: number) { if (n < step.value || (isReview.value && n !== step.value)) { stepErrors.value = []; step.value = n } }
   function copyBillingToShipping() { Object.assign(shipping, billing) }
 
   // ── gravação ───────────────────────────────────────────────────────────────
@@ -240,7 +274,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
 
   return {
     step, info, period, billing, shipping, lines, adjustment, generalDiscount, generalTouched, setGeneralDiscount, promoCode, ctx, ctxLoading, saving,
-    stepErrors, fieldErrors, result, calcs, totals, source, fromDeal, accountLocked, contactLocked, dealLocked, initFromDeal, initFromQuote, isReview, reviewStage, blockedReason,
+    stepErrors, fieldErrors, result, calcs, totals, source, fromDeal, accountLocked, contactLocked, dealLocked, isFree, reloading, reopenReview, initFromDeal, initFromQuote, isReview, reviewStage, blockedReason,
     addLine, removeLine, pickProduct, clearError, next, back, goTo, copyBillingToShipping, save, reset, refreshContext,
   }
 })

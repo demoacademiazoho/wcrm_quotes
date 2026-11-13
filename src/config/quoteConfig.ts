@@ -21,8 +21,8 @@ export const quoteConfig = {
   createFunction: 'fn_Quotes_createFromWizard',
   updateFunction: 'fn_Quotes_updateFromWizard',
   calcFunction: 'fn_Quotes_calcLines',
-  /** fases em que o orçamento pode ser revisto no widget (BP02) */
-  reviewStages: ['Rascunho', 'Revisão'],
+  /** fases em que o orçamento pode ser revisto no widget (BP02): só Revisão */
+  reviewStages: ['Revisão'],
   deliveryToCustomer: 'Entrega ao cliente',
   warehousePickup: 'Levantamento em armazém',
   requestOrigins: ['Portal', 'Backoffice', 'Telefone', 'Email'],

@@ -175,15 +175,18 @@ const addressOf = (q: any, p: 'Billing' | 'Shipping'): AddressState => ({
 export async function loadQuotePrefill(quoteId: string): Promise<QuotePrefill | null> {
   const q = await getRecord('Quotes', quoteId)
   if (!q) return null
+  // HIPÓTESE: o SDK do widget usa a API antiga, onde as linhas vêm em Product_Details (product, quantity); na v8 vêm em Quoted_Items (Product_Name, Quantity). Aceitam-se os dois formatos.
+  const rows: any[] = Array.isArray(q.Product_Details) && q.Product_Details.length ? q.Product_Details : Array.isArray(q.Quoted_Items) ? q.Quoted_Items : []
   const lines: QuotePrefill['lines'] = []
-  for (const r of Array.isArray(q.Quoted_Items) ? q.Quoted_Items : []) {
-    const product = asLookup(r.Product_Name, 'Product_Name')
+  for (const r of rows) {
+    const product = asLookup(r.product ?? r.Product_Name, 'Product_Name')
     if (!product) continue
     lines.push({
-      product, qty: String(r.Quantity ?? 1), start: r.Line_Start_Date ?? '', end: r.Line_End_Date ?? '',
+      product, qty: String(r.quantity ?? r.Quantity ?? 1), start: r.Line_Start_Date ?? '', end: r.Line_End_Date ?? '',
       discount: Number(r.Discount ?? 0),
     })
   }
+  if (!lines.length) console.warn('[wcrm_quotes] Orçamento sem linhas lidas. Campos devolvidos pelo SDK:', Object.keys(q), rows)
   return {
     id: String(q.id),
     stage: String(q.Quote_Stage ?? ''),
@@ -229,6 +232,23 @@ export async function createQuote(payload: Record<string, unknown>): Promise<str
 export async function recalcQuote(id: string): Promise<void> {
   const res = await ZOHO.CRM.FUNCTIONS.execute(cfg.calcFunction, functionRequest({ arguments: JSON.stringify({ quoteId: id }) }))
   if (res?.code !== 'success') throw res
+}
+
+/**
+ * Abre a lista de Pedidos de Orçamento na janela principal do CRM (o popup desaparece com a navegação).
+ * HIPÓTESE: o iframe do widget pode não ter permissão para navegar a janela principal; nesse caso fecha só o popup.
+ */
+export async function goToQuotesList(): Promise<void> {
+  try {
+    const org = await getOrgInfo()
+    const url = `${cfg.crmBaseUrl}/org${org.zgid}/tab/Quotes`
+    try {
+      window.top!.location.href = url
+      return
+    } catch { /* sem permissão para navegar a janela principal */ }
+    if (window.open(url, '_top')) return
+  } catch { /* sem id da organização */ }
+  await ZOHO.CRM.UI.Popup.close()
 }
 
 export async function openQuote(id: string): Promise<void> {

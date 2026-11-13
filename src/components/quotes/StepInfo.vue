@@ -24,6 +24,9 @@
         required
         placeholder="Pesquisar empresa..."
         :search="(q) => searchLookup('Accounts', q)"
+        :suggest="free ? () => suggestLookup('Accounts') : undefined"
+        :create-label="free ? 'Nova Empresa' : undefined"
+        @create="openCreate('Accounts')"
         :disabled="s.accountLocked"
         :hint="s.accountLocked ? (s.isReview ? 'Não se altera na revisão.' : 'Definida pela oportunidade de origem.') : undefined"
         :error="s.fieldErrors.account"
@@ -36,6 +39,9 @@
         required
         placeholder="Pesquisar contacto..."
         :search="(q) => searchLookup('Contacts', q)"
+        :suggest="free ? () => suggestLookup('Contacts') : undefined"
+        :create-label="free ? 'Novo Contacto' : undefined"
+        @create="openCreate('Contacts')"
         :disabled="s.contactLocked"
         :hint="s.contactLocked ? (s.isReview ? 'Não se altera na revisão.' : 'Definido pela oportunidade de origem.') : undefined"
         :error="s.fieldErrors.contact"
@@ -49,6 +55,9 @@
         :disabled="s.dealLocked"
         :hint="s.dealLocked ? (s.isReview ? 'Não se altera na revisão.' : 'Definida pela oportunidade de origem.') : undefined"
         :search="(q) => searchLookup('Deals', q)"
+        :suggest="free ? () => suggestLookup('Deals') : undefined"
+        :create-label="free ? 'Nova Oportunidade' : undefined"
+        @create="openCreate('Deals')"
       />
       <DatePicker
         id="validTill"
@@ -76,9 +85,12 @@ import DatePicker from '@/components/form/DatePicker.vue'
 import LookupInput from './LookupInput.vue'
 import { quoteConfig } from '@/config/quoteConfig'
 import { useQuoteWizardStore } from '@/stores/quoteWizard'
-import { searchLookup } from '@/utils/zohoQuotes'
+import { computed } from 'vue'
+import { openCreate, searchLookup, suggestLookup } from '@/utils/zohoQuotes'
 
 const s = useQuoteWizardStore()
+/** abertura livre (a partir de Pedidos de Orçamento > Novo): Empresa, Contacto e Oportunidade pesquisáveis, com sugestões e link de criação como nos campos nativos */
+const free = computed(() => !s.isReview && !s.fromDeal)
 const origins = quoteConfig.requestOrigins.map((o) => ({ label: o, value: o }))
 function clearParty() {
   s.clearError('account')

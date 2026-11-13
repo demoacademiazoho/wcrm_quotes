@@ -23,7 +23,7 @@ const db: Record<string, any[]> = {
     Contact_Name: { id: 'C1', name: 'Ruben Teste' }, Deal_Name: { id: 'D1', name: 'Obra Cascais 2026' },
     Rental_Start_Date: '2026-11-16', Rental_End_Date: '2026-11-30', Delivery_Type: 'Entrega ao cliente', Request_Origin: 'Telefone',
     Shipping_Country: 'Portugal', Shipping_Street: 'Rua das Obras 1', Shipping_City: 'Cascais', Shipping_Code: '2750-001', Discount: 20,
-    Quoted_Items: [{ id: 'L1', Product_Name: { id: 'P2', name: 'Gerador 20 kVA' }, Quantity: 1, Line_Start_Date: '2026-11-16', Line_End_Date: '2026-11-30', Discount: 0 }],
+    Product_Details: [{ id: 'L1', product: { id: 'P2', name: 'Gerador 20 kVA', Product_Code: 'GER-20' }, quantity: 1, Line_Start_Date: '2026-11-16', Line_End_Date: '2026-11-30', Discount: 0 }],
   }, { id: 'Q2', Subject: 'Já enviado', Quote_Stage: 'Enviado' }],
   Price_Books: [
     { id: 'PB1', Price_Book_Name: 'Tabela Construção 2026', Active: true },

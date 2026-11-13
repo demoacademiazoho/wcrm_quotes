@@ -25,15 +25,21 @@
       <h2 class="text-lg font-bold text-navy">{{ s.isReview ? 'Orçamento atualizado' : 'Orçamento criado em Rascunho' }}</h2>
       <p v-if="s.result.warning" class="mx-auto mt-2 max-w-xl rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ s.result.warning }}</p>
       <div class="mt-5 flex justify-center gap-3">
-        <Button variant="accent" @click="openQuote(s.result.id)">Abrir orçamento</Button>
-        <Button v-if="s.isReview" variant="secondary" @click="closeAndReloadPopup">Voltar ao orçamento</Button>
-        <Button v-else-if="s.fromDeal" variant="secondary" @click="closeAndReloadPopup">Voltar à oportunidade</Button>
-        <Button v-else variant="secondary" @click="s.reset">Novo orçamento</Button>
+        <!-- Revisão: reabre o widget nas linhas já atualizadas; fechar recarrega o orçamento -->
+        <template v-if="s.isReview">
+          <Button variant="accent" :loading="s.reloading" @click="s.reopenReview">Voltar às linhas</Button>
+          <Button variant="secondary" @click="closeAndReloadPopup">Fechar</Button>
+        </template>
+        <template v-else>
+          <Button variant="accent" @click="openQuote(s.result.id)">Abrir orçamento</Button>
+          <Button v-if="s.fromDeal" variant="secondary" @click="closeAndReloadPopup">Voltar à oportunidade</Button>
+          <Button v-else variant="secondary" @click="goToQuotesList">Voltar aos orçamentos</Button>
+        </template>
       </div>
     </div>
 
     <template v-else>
-      <StepperBar :steps="STEPS" :current="s.step" @go="s.goTo" />
+      <StepperBar :steps="STEPS" :current="s.step" :any-step="s.isReview" @go="s.goTo" />
 
       <!-- duas partes em todos os passos: informação do pedido (4/6) e Resumo (2/6) -->
       <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-6">
@@ -51,7 +57,11 @@
           </ul>
 
           <footer class="flex items-center justify-between">
-            <Button variant="secondary" :disabled="s.step === 0 || s.saving" @click="s.back">Voltar</Button>
+            <div class="flex gap-3">
+              <Button variant="secondary" :disabled="s.step === 0 || s.saving" @click="s.back">Voltar</Button>
+              <!-- só na abertura livre: fecha o widget e volta à lista de orçamentos -->
+              <Button v-if="s.isFree" variant="secondary" :disabled="s.saving" @click="goToQuotesList">Cancelar</Button>
+            </div>
             <Button v-if="s.step < STEPS.length - 1" variant="accent" @click="s.next">Seguinte</Button>
             <Button v-else variant="accent" :loading="s.saving" @click="s.save">{{ s.isReview ? 'Guardar revisão' : 'Guardar orçamento' }}</Button>
           </footer>
@@ -71,7 +81,7 @@ import StepAddress from './StepAddress.vue'
 import StepItems from './StepItems.vue'
 import QuoteSummary from './QuoteSummary.vue'
 import { STEPS, useQuoteWizardStore } from '@/stores/quoteWizard'
-import { openQuote } from '@/utils/zohoQuotes'
+import { goToQuotesList, openQuote } from '@/utils/zohoQuotes'
 import { closeAndReloadPopup } from '@/utils/zohoFunctions'
 
 const s = useQuoteWizardStore()
