@@ -11,6 +11,8 @@ export const quoteConfig = {
   maxContractDiscountPct: 50,
   /** "Válido até" por defeito = hoje + N dias */
   validDays: 7,
+  /** categorias de Equipamento Catálogo que não se podem orçamentar (iguais ao filtro do campo no CRM) */
+  excludedProductCategories: ['Serviços de fatura'],
   /** campo da tabela de preços no Contacto (hoje não existe em Contactos) */
   contactPriceBookField: 'Price_Book',
   /** isenção de caução (só existe em Empresas) */

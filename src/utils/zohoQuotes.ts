@@ -15,11 +15,16 @@ const nameOf: Record<LookupEntity, (r: any) => string> = {
   Products: (r) => r.Product_Name + (r.Product_Code ? ` (${r.Product_Code})` : ''),
 }
 
+/** Equipamentos de categorias excluídas (ex.: "Serviços de fatura") nunca aparecem nas sugestões */
+function isAllowed(entity: LookupEntity, r: any): boolean {
+  return entity !== 'Products' || !(cfg.excludedProductCategories as readonly string[]).includes(r.Product_Category)
+}
+
 /** Pesquisa por palavra num módulo (máx. 10 resultados) */
 export async function searchLookup(entity: LookupEntity, query: string): Promise<Lookup[]> {
   try {
     const res = await ZOHO.CRM.API.searchRecord({ Entity: entity, Type: 'word', Query: query })
-    return ((res?.data as any[]) ?? []).slice(0, 10).map((r) => ({ id: String(r.id), name: nameOf[entity](r) }))
+    return ((res?.data as any[]) ?? []).filter((r) => isAllowed(entity, r)).slice(0, 10).map((r) => ({ id: String(r.id), name: nameOf[entity](r) }))
   } catch {
     return []
   }
@@ -30,7 +35,7 @@ export async function suggestLookup(entity: LookupEntity, max = 8): Promise<Look
   try {
     const res = await ZOHO.CRM.API.getAllRecords({ Entity: entity, page: 1, per_page: 25 })
     return ((res?.data as any[]) ?? [])
-      .filter((r) => r.Product_Active !== false)
+      .filter((r) => r.Product_Active !== false && isAllowed(entity, r))
       .slice(0, max)
       .map((r) => ({ id: String(r.id), name: nameOf[entity](r) }))
   } catch {
