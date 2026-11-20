@@ -2,8 +2,8 @@
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between gap-4">
       <p class="text-sm text-muted">
-        <template v-if="required">Com entrega ao cliente, a morada de envio é obrigatória.</template>
-        <template v-else>Tipo de entrega: {{ s.period.deliveryType }}. A morada de envio é opcional.</template>
+        <template v-if="required">Com entrega ou recolha no cliente, a morada de envio é obrigatória.</template>
+        <template v-else>Entrega: {{ s.period.deliveryType }}; recolha: {{ s.period.pickupType }}. A morada de envio é opcional.</template>
       </p>
       <Button variant="secondary" size="sm" @click="s.copyBillingToShipping">Copiar endereço</Button>
     </div>
@@ -50,5 +50,5 @@ import { quoteConfig } from '@/config/quoteConfig'
 import { useQuoteWizardStore } from '@/stores/quoteWizard'
 
 const s = useQuoteWizardStore()
-const required = computed(() => s.period.deliveryType === quoteConfig.deliveryToCustomer)
+const required = computed(() => s.period.deliveryType === quoteConfig.deliveryToCustomer || s.period.pickupType === quoteConfig.pickupToCustomer)
 </script>

@@ -199,7 +199,7 @@ export async function loadQuotePrefill(quoteId: string): Promise<QuotePrefill | 
       subject: String(q.Subject ?? ''), account: asLookup(q.Account_Name, 'Account_Name'), contact: asLookup(q.Contact_Name, 'Full_Name'),
       deal: asLookup(q.Deal_Name, 'Deal_Name'), validTill: q.Valid_Till ?? '', requestOrigin: String(q.Request_Origin ?? ''),
     },
-    period: { start: q.Rental_Start_Date ?? '', end: q.Rental_End_Date ?? '', transportCost: q.Transport_Cost ? String(q.Transport_Cost) : '', deliveryType: String(q.Delivery_Type ?? '') },
+    period: { start: q.Rental_Start_Date ?? '', end: q.Rental_End_Date ?? '', transportCost: q.Transport_Cost ? String(q.Transport_Cost) : '', deliveryType: String(q.Delivery_Type ?? ''), pickupType: String(q[cfg.pickupField] ?? '') },
     billing: addressOf(q, 'Billing'),
     shipping: addressOf(q, 'Shipping'),
     adjustment: q.Adjustment ? String(q.Adjustment) : '',

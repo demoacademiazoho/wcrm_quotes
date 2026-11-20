@@ -2,7 +2,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { quoteConfig as cfg } from '@/config/quoteConfig'
 import type { AddressState, DealPrefill, GeneralDiscount, LineState, Lookup, PeriodState, PriceContext, QuoteInfoState } from '@/interfaces/quoteTypes'
-import { applyGeneralVat, calcLine, calcTotals, generalDiscountOf, toNumber } from '@/utils/quotePricing'
+import { applyGeneralVat, calcLine, calcTotals, generalDiscountOf, hasTransport, toNumber } from '@/utils/quotePricing'
 import { buildQuotePayload } from '@/utils/quotePayload'
 import { createQuote, loadDealPrefill, loadPriceContext, loadProduct, loadQuotePrefill, recalcQuote, updateQuote } from '@/utils/zohoQuotes'
 
@@ -19,7 +19,7 @@ const noContext = (): PriceContext => ({ origin: 'Produto', prices: {}, contract
 export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   const step = ref(0)
   const info = reactive<QuoteInfoState>({ subject: '', account: null, contact: null, deal: null, validTill: todayPlus(cfg.validDays), requestOrigin: '' })
-  const period = reactive<PeriodState>({ start: '', end: '', transportCost: '', deliveryType: '' })
+  const period = reactive<PeriodState>({ start: '', end: '', transportCost: '', deliveryType: '', pickupType: '' })
   const billing = reactive<AddressState>(emptyAddress())
   const shipping = reactive<AddressState>(emptyAddress())
   const lines = ref<LineState[]>([])
@@ -70,7 +70,10 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
   const rawCalcs = computed(() => lines.value.map((l) => calcLine(l, ctx.value)))
   const general = computed(() => generalDiscountOf(rawCalcs.value.filter((c) => c.ok).reduce((a, c) => a + c.base, 0), generalDiscount))
   const calcs = computed(() => applyGeneralVat(rawCalcs.value, general.value.pct))
-  const totals = computed(() => calcTotals(calcs.value, general.value, toNumber(adjustment.value), ctx.value.depositExempt))
+  const transport = computed(() => (hasTransport(period.deliveryType, period.pickupType) ? toNumber(period.transportCost) : 0))
+  const totals = computed(() => calcTotals(calcs.value, general.value, toNumber(adjustment.value), ctx.value.depositExempt, transport.value))
+  // sem entrega nem recolha no cliente não há custo de transporte
+  watch(() => [period.deliveryType, period.pickupType], () => { if (!hasTransport(period.deliveryType, period.pickupType)) period.transportCost = '' })
   function setGeneralDiscount(mode: 'pct' | 'amount', value: string) {
     Object.assign(generalDiscount, { mode, value })
     generalTouched.value = true
@@ -116,10 +119,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
       return true
     }
     // com desconto geral já gravado, não se volta a sugerir o contratual da Empresa
-    if (q.discount > 0) {
-      Object.assign(generalDiscount, { mode: 'amount', value: String(q.discount) })
-      generalTouched.value = true
-    }
+    if (q.discount > 0) generalTouched.value = true
     Object.assign(info, q.info)
     Object.assign(period, q.period)
     Object.assign(billing, q.billing)
@@ -138,6 +138,9 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
         l.loading = false
       }),
     ])
+    if (q.discount > 0) {
+      Object.assign(generalDiscount, { mode: 'amount', value: String(q.discount) })
+    }
     // a revisão abre direto nos itens; os restantes passos ficam acessíveis pelo menu de passos
     step.value = STEPS.length - 1
     return true
@@ -204,7 +207,8 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
       if (!period.end) fail('end', 'Indique a data de fim do aluguer.')
       if (period.start && period.end && period.end < period.start) fail('end', 'A data de fim do aluguer é anterior à data de início.')
       if (!period.deliveryType) fail('deliveryType', 'Indique o tipo de entrega.')
-    } else if (n === 2 && period.deliveryType === cfg.deliveryToCustomer) {
+      if (!period.pickupType) fail('pickupType', 'Indique o tipo de recolha.')
+    } else if (n === 2 && (period.deliveryType === cfg.deliveryToCustomer || period.pickupType === cfg.pickupToCustomer)) {
       if (!shipping.country) fail('s.country', 'País obrigatório.')
       if (!shipping.street) fail('s.street', 'Rua obrigatória.')
       if (!shipping.city) fail('s.city', 'Cidade obrigatória.')
@@ -258,7 +262,7 @@ export const useQuoteWizardStore = defineStore('quoteWizard', () => {
     pendingProducts = []
     step.value = 0
     Object.assign(info, { subject: '', account: null, contact: null, deal: null, validTill: todayPlus(cfg.validDays), requestOrigin: '' })
-    Object.assign(period, { start: '', end: '', transportCost: '', deliveryType: '' })
+    Object.assign(period, { start: '', end: '', transportCost: '', deliveryType: '', pickupType: '' })
     Object.assign(billing, emptyAddress())
     Object.assign(shipping, emptyAddress())
     lines.value = []

@@ -24,6 +24,7 @@ export function buildQuotePayload(i: PayloadInput): Record<string, unknown> {
     Rental_Start_Date: i.period.start,
     Rental_End_Date: i.period.end,
     Delivery_Type: i.period.deliveryType,
+    [cfg.pickupField]: i.period.pickupType,
     Billing_Country: i.billing.country, Billing_Street: i.billing.street, Billing_City: i.billing.city,
     Billing_State: i.billing.state, Billing_Code: i.billing.code,
     Shipping_Country: i.shipping.country, Shipping_Street: i.shipping.street, Shipping_City: i.shipping.city,
@@ -47,17 +48,18 @@ export function buildQuotePayload(i: PayloadInput): Record<string, unknown> {
   if (!i.review) o.Quote_Stage = 'Rascunho'
   if (!i.review && i.info.contact) o.Contact_Name = { id: i.info.contact.id }
   if (!i.review && i.info.account) o.Account_Name = { id: i.info.account.id }
-  // Desconto geral em euros (por defeito o contratual da Empresa; o utilizador pode alterá-lo)
-  if (i.totals.generalDiscount > 0) o.Discount = i.totals.generalDiscount
-  if (i.review) o.Discount = i.totals.generalDiscount > 0 ? i.totals.generalDiscount : 0
+  // Desconto geral em euros, SEM IVA (por defeito o contratual da Empresa; o utilizador pode alterá-lo)
+  const discount = i.totals.generalDiscount
+  if (discount > 0) o.Discount = discount
+  if (i.review) o.Discount = discount > 0 ? discount : 0
   if (!i.review && i.info.deal) o.Deal_Name = { id: i.info.deal.id }
   if (i.info.requestOrigin) o.Request_Origin = i.info.requestOrigin
-  if (toNumber(i.period.transportCost)) o.Transport_Cost = toNumber(i.period.transportCost)
+  if (i.totals.transport) o.Transport_Cost = i.totals.transport
   if (i.promoCode) o.Promo_Code = i.promoCode
   if (i.review) {
     // na revisão, um campo esvaziado tem de ser limpo no CRM (null) e não ignorado
     o.Request_Origin = i.info.requestOrigin || null
-    o.Transport_Cost = toNumber(i.period.transportCost) || null
+    o.Transport_Cost = i.totals.transport || null
     o.Promo_Code = i.promoCode || null
   }
   // campos vazios não vão para o CRM (na criação)

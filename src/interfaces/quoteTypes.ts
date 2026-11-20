@@ -79,6 +79,7 @@ export interface PeriodState {
   end: string
   transportCost: string
   deliveryType: string
+  pickupType: string
 }
 
 export interface LineState {
@@ -127,6 +128,12 @@ export interface GeneralDiscount {
   value: string
 }
 
+export interface VatRow {
+  rate: number
+  base: number
+  vat: number
+}
+
 export interface QuoteTotals {
   gross: number
   lineDiscounts: number
@@ -136,7 +143,19 @@ export interface QuoteTotals {
   /** desconto geral em % do total das linhas (usado no IVA) */
   generalPct: number
   vat: number
+  /** quadro de IVA por taxa: base já sem o desconto geral, taxa e imposto (o IVA total é a soma destes impostos) */
+  vatTable: VatRow[]
   adjustment: number
+  /** custo de transporte, com IVA incluído (só com Entrega ao cliente ou Recolha no cliente); soma-se ao Total Geral */
+  transport: number
+  /** parte do transporte que é IVA (já contada em vat e no quadro de IVA) */
+  transportVat: number
+  /** transporte sem IVA */
+  transportNet: number
+  /** ajuste sem IVA (o ajuste introduzido inclui IVA) */
+  adjustmentNet: number
+  /** Total sem IVA = base - desconto geral + transporte e ajuste sem IVA */
+  exclVat: number
   grand: number
   deposit: number
 }

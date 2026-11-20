@@ -27,5 +27,13 @@ export const quoteConfig = {
   reviewStages: ['Rascunho', 'Revisão'],
   deliveryToCustomer: 'Entrega ao cliente',
   warehousePickup: 'Levantamento em armazém',
+  /** campo do CRM com o tipo de recolha (lista com os 2 valores abaixo) */
+  pickupField: 'Pickup_Type',
+  pickupToCustomer: 'Recolha no cliente',
+  warehouseReturn: 'Devolução em armazém',
+  /** o custo de transporte já inclui IVA a esta taxa (%): entra no quadro de IVA e no IVA total */
+  transportVatPct: 23,
+  /** o Ajuste (arredondamento do Total Geral) inclui IVA a esta taxa (%), a validar com o contabilista */
+  adjustmentVatPct: 23,
   requestOrigins: ['Portal', 'Backoffice', 'Telefone', 'Email'],
 } as const

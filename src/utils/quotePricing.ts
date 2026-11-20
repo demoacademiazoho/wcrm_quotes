@@ -1,7 +1,13 @@
 import { quoteConfig as cfg } from '@/config/quoteConfig'
-import type { GeneralDiscount, LineCalc, LineState, PriceContext, ProductInfo, QuoteTotals } from '@/interfaces/quoteTypes'
+import type { GeneralDiscount, LineCalc, LineState, PriceContext, ProductInfo, QuoteTotals, VatRow } from '@/interfaces/quoteTypes'
 
-export const r2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100
+/** Arredondamento a 2 casas, half-up (3.º decimal >= 5 sobe), sem os erros de vírgula flutuante (1.005 -> 1.01) */
+export const r2 = (n: number): number => {
+  if (!Number.isFinite(n)) return 0
+  const x = Math.abs(n)
+  const r = Number(Math.round(Number(`${x}e2`)) + 'e-2')
+  return Number.isFinite(r) ? (n < 0 ? -r : r) : Math.round((n + Number.EPSILON) * 100) / 100
+}
 
 export function toNumber(value: string | number | undefined | null): number {
   const n = typeof value === 'number' ? value : parseFloat(String(value ?? '').replace(',', '.'))
@@ -90,16 +96,49 @@ export function generalDiscountOf(base: number, g: GeneralDiscount): { amount: n
   return { amount, pct, error }
 }
 
-/** IVA de cada linha sobre a base já sem a parte do desconto geral */
+/** IVA informativo de cada linha sobre a base já sem a parte do desconto geral (o IVA do orçamento é apurado por taxa em calcTotals) */
 export function applyGeneralVat(calcs: LineCalc[], generalPct: number): LineCalc[] {
   return calcs.map((c) => (c.ok ? { ...c, vat: r2((c.base * (1 - generalPct / 100) * c.vatPct) / 100) } : c))
 }
 
-export function calcTotals(calcs: LineCalc[], general: { amount: number; pct: number }, adjustment: number, depositExempt: boolean): QuoteTotals {
+/** Há custo de transporte se a entrega for ao cliente, ou a recolha for no cliente, ou ambas. Só é 0 quando as duas são em armazém. */
+export function hasTransport(deliveryType: string, pickupType: string): boolean {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.toLowerCase()
+  return same(deliveryType, cfg.deliveryToCustomer) || same(pickupType, cfg.pickupToCustomer)
+}
+
+export function calcTotals(calcs: LineCalc[], general: { amount: number; pct: number }, adjustment: number, depositExempt: boolean, transport = 0): QuoteTotals {
   const valid = calcs.filter((c) => c.ok)
   const sum = (f: (c: LineCalc) => number) => valid.reduce((a, c) => a + f(c), 0)
   const base = sum((c) => c.base)
-  const vat = r2(sum((c) => c.vat))
+  // IVA "pelo total por taxa" (Guia Técnico de IVA, método recomendado): soma as bases de cada taxa,
+  // aplica o desconto geral proporcionalmente e só depois calcula e arredonda o IVA de cada taxa
+  const baseByRate = new Map<number, number>()
+  for (const c of valid) baseByRate.set(c.vatPct, (baseByRate.get(c.vatPct) ?? 0) + c.base)
+  // o transporte e o ajuste já incluem IVA: base e imposto entram na linha da sua taxa e não levam desconto geral
+  const tRate = cfg.transportVatPct
+  const aRate = cfg.adjustmentVatPct
+  const transportNet = transport > 0 ? r2(transport / (1 + tRate / 100)) : 0
+  const transportVat = transport > 0 ? r2(transport - transportNet) : 0
+  const adjustmentNet = adjustment !== 0 ? r2(adjustment / (1 + aRate / 100)) : 0
+  const adjustmentVat = adjustment !== 0 ? r2(adjustment - adjustmentNet) : 0
+  const extras = new Map<number, { net: number; vat: number }>()
+  const addExtra = (rate: number, net: number, vat: number) => {
+    const e = extras.get(rate) ?? { net: 0, vat: 0 }
+    extras.set(rate, { net: e.net + net, vat: e.vat + vat })
+    if (!baseByRate.has(rate)) baseByRate.set(rate, 0)
+  }
+  if (transport > 0) addExtra(tRate, transportNet, transportVat)
+  if (adjustment !== 0) addExtra(aRate, adjustmentNet, adjustmentVat)
+  const vatTable: VatRow[] = [...baseByRate]
+    .sort((x, y) => y[0] - x[0])
+    .map(([rate, b]) => {
+      const net = b * (1 - general.pct / 100)
+      const e = extras.get(rate)
+      return { rate, base: r2(net + (e?.net ?? 0)), vat: r2(r2((net * rate) / 100) + (e?.vat ?? 0)) }
+    })
+  const vat = r2(vatTable.reduce((acc, row) => acc + row.vat, 0))
+  const exclVat = r2(base - general.amount + transportNet + adjustmentNet)
   return {
     gross: r2(sum((c) => c.gross)),
     lineDiscounts: r2(sum((c) => c.discount)),
@@ -107,8 +146,14 @@ export function calcTotals(calcs: LineCalc[], general: { amount: number; pct: nu
     generalDiscount: general.amount,
     generalPct: general.pct,
     vat,
+    vatTable,
     adjustment,
-    grand: r2(base - general.amount + vat + adjustment),
+    transport,
+    transportVat,
+    transportNet,
+    adjustmentNet,
+    exclVat,
+    grand: r2(exclVat + vat),
     deposit: depositExempt ? 0 : r2(sum((c) => c.deposit)),
   }
 }
