@@ -107,11 +107,23 @@ async function loadPriceBook(pbId: string | undefined): Promise<{ prices: Record
   }
   const prices: Record<string, number> = {}
   try {
-    const res = await ZOHO.CRM.API.getRelatedRecords({ Entity: 'Price_Books', RecordID: pbId, RelatedList: 'Products', page: 1, per_page: 200 })
-    for (const p of (res?.data as any[]) ?? []) {
-      if (p.list_price != null) prices[String(p.id)] = Number(p.list_price)
+    // a lista relacionada vem paginada (máx. 200 por página): lê todas as páginas
+    for (let page = 1; page <= 10; page++) {
+      const res = await ZOHO.CRM.API.getRelatedRecords({ Entity: 'Price_Books', RecordID: pbId, RelatedList: 'Products', page, per_page: 200 })
+      const rows = (res?.data as any[]) ?? []
+      if (page === 1) console.info('[wcrm_quotes] Tabela de preços', pbName, pbId, '- equipamentos devolvidos:', rows.length, '| campos do 1.º:', rows[0] ? Object.keys(rows[0]) : res)
+      for (const p of rows) {
+        // HIPÓTESE: o preço de tabela vem em list_price; aceitam-se também outras grafias
+        const lp = p.list_price ?? p.List_Price ?? p.Price_Book_Price ?? p.price
+        const id = p.id ?? p.Product_Id ?? p.product?.id
+        if (lp != null && lp !== '' && id != null) prices[String(id)] = Number(lp)
+      }
+      if (rows.length < 200 || (res as any)?.info?.more_records === false) break
     }
-  } catch { /* sem preços: usa o preço do equipamento */ }
+  } catch (e) {
+    console.warn('[wcrm_quotes] Falha a ler os preços da tabela', pbId, e)
+  }
+  if (!Object.keys(prices).length) console.warn('[wcrm_quotes] Tabela de preços sem preços lidos: usado o preço do equipamento.', pbId)
   return { prices, note: `Preços da tabela ${pbName}`.trim() }
 }
 
