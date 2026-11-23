@@ -97,9 +97,29 @@ export async function loadProduct(id: string): Promise<ProductInfo | null> {
   }
 }
 
+/** Lê os preços pela função Deluge (o SDK do widget não devolve o list_price da lista relacionada) */
+async function pricesFromFunction(pbId: string): Promise<{ prices: Record<string, number>; active: boolean; name: string } | null> {
+  try {
+    const out = await invokeCrmFunction(cfg.priceBookFunction, { arguments: JSON.stringify({ priceBookId: pbId }) }, 'object')
+    if (out?.code !== 'SUCCESS') { console.warn('[wcrm_quotes] fn_PriceBooks_getPrices devolveu erro:', out); return null }
+    const prices: Record<string, number> = {}
+    for (const [id, v] of Object.entries(out.prices ?? {})) prices[String(id)] = Number(v)
+    return { prices, active: out.active !== false, name: String(out.name ?? '') }
+  } catch (e) {
+    console.warn('[wcrm_quotes] Falha a chamar fn_PriceBooks_getPrices:', e)
+    return null
+  }
+}
+
 /** Tabela de preços ATIVA -> { idProduto: preço por dia } */
 async function loadPriceBook(pbId: string | undefined): Promise<{ prices: Record<string, number>; note: string }> {
   if (!pbId) return { prices: {}, note: 'Sem tabela de preços associada: usado o preço do equipamento.' }
+  const fromFn = await pricesFromFunction(pbId)
+  if (fromFn) {
+    if (!fromFn.active) return { prices: {}, note: `A tabela de preços ${fromFn.name} está inativa: usado o preço do equipamento.` }
+    if (Object.keys(fromFn.prices).length) return { prices: fromFn.prices, note: `Preços da tabela ${fromFn.name}`.trim() }
+  }
+  // alternativa: SDK do widget (pode não trazer o list_price)
   const pb = await getRecord('Price_Books', pbId)
   const pbName = pb?.Price_Book_Name ?? ''
   if (pb && pb.Active === false) {
@@ -107,23 +127,22 @@ async function loadPriceBook(pbId: string | undefined): Promise<{ prices: Record
   }
   const prices: Record<string, number> = {}
   try {
-    // a lista relacionada vem paginada (máx. 200 por página): lê todas as páginas
     for (let page = 1; page <= 10; page++) {
       const res = await ZOHO.CRM.API.getRelatedRecords({ Entity: 'Price_Books', RecordID: pbId, RelatedList: 'Products', page, per_page: 200 })
       const rows = (res?.data as any[]) ?? []
-      if (page === 1) console.info('[wcrm_quotes] Tabela de preços', pbName, pbId, '- equipamentos devolvidos:', rows.length, '| campos do 1.º:', rows[0] ? Object.keys(rows[0]) : res)
       for (const p of rows) {
-        // HIPÓTESE: o preço de tabela vem em list_price; aceitam-se também outras grafias
-        const lp = p.list_price ?? p.List_Price ?? p.Price_Book_Price ?? p.price
-        const id = p.id ?? p.Product_Id ?? p.product?.id
-        if (lp != null && lp !== '' && id != null) prices[String(id)] = Number(lp)
+        const lp = p.list_price ?? p.List_Price ?? p.Price_Book_Price
+        if (lp != null && lp !== '' && p.id != null) prices[String(p.id)] = Number(lp)
       }
-      if (rows.length < 200 || (res as any)?.info?.more_records === false) break
+      if (rows.length < 200) break
     }
   } catch (e) {
     console.warn('[wcrm_quotes] Falha a ler os preços da tabela', pbId, e)
   }
-  if (!Object.keys(prices).length) console.warn('[wcrm_quotes] Tabela de preços sem preços lidos: usado o preço do equipamento.', pbId)
+  if (!Object.keys(prices).length) {
+    console.warn('[wcrm_quotes] Tabela de preços sem preços lidos: usado o preço do equipamento.', pbId)
+    return { prices, note: `Sem preços lidos da tabela ${pbName}: usado o preço do equipamento.`.replace('  ', ' ') }
+  }
   return { prices, note: `Preços da tabela ${pbName}`.trim() }
 }
 

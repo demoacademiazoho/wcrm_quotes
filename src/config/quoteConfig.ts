@@ -23,6 +23,8 @@ export const quoteConfig = {
   createFunction: 'fn_Quotes_createFromWizard',
   updateFunction: 'fn_Quotes_updateFromWizard',
   calcFunction: 'fn_Quotes_calcLines',
+  /** função Deluge que devolve os preços da tabela de preços (idProduto -> preço por dia) */
+  priceBookFunction: 'fn_PriceBooks_getPrices',
   /** fases em que o orçamento pode ser revisto no widget (BP02): só Revisão e em Rascunho*/
   reviewStages: ['Rascunho', 'Revisão'],
   deliveryToCustomer: 'Entrega ao cliente',
